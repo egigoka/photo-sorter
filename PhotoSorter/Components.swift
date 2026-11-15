@@ -68,16 +68,24 @@ extension PHImageRequestOptions {
 }
 
 extension PHImageManager {
+    /// Starts the image requests one after the other, away from the main thread. A request can wait
+    /// for the photo library, for example after a large delete, and the screen must not wait with it.
+    fileprivate static let requests = DispatchQueue(label: "me.egigoka.photosorter.image-requests", qos: .userInitiated)
+
     /// Delivers a quick low-quality image first when one exists, then the final image.
     func images(for asset: PHAsset, pixelSize: CGSize, contentMode: PHImageContentMode, network: Bool) -> AsyncStream<UIImage> {
         AsyncStream { continuation in
-            let options = PHImageRequestOptions.opportunistic(network: network)
-            let request = requestImage(for: asset, targetSize: pixelSize, contentMode: contentMode, options: options) { image, info in
-                if let image { continuation.yield(image) }
-                let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
-                if !degraded { continuation.finish() }
+            let request = RequestBox(manager: self)
+            Self.requests.async {
+                guard !request.isCancelled else { return }
+                let options = PHImageRequestOptions.opportunistic(network: network)
+                request.set(self.requestImage(for: asset, targetSize: pixelSize, contentMode: contentMode, options: options) { image, info in
+                    if let image { continuation.yield(image) }
+                    let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                    if !degraded { continuation.finish() }
+                })
             }
-            continuation.onTermination = { [weak self] _ in self?.cancelImageRequest(request) }
+            continuation.onTermination = { _ in request.cancel() }
         }
     }
 }
@@ -118,11 +126,28 @@ enum ViewerPictures {
     /// Prepared photos. The photo that is let go first is at the start.
     private static var prepared: [PHAsset] = []
 
-    /// The same size and options for each call. Otherwise the viewer loads a prepared picture again.
-    private static var options: PHImageRequestOptions { .opportunistic(network: true) }
-
     static func images(for asset: PHAsset) -> AsyncStream<UIImage> {
         manager.images(for: asset, pixelSize: pixelSize, contentMode: .aspectFit, network: true)
+    }
+
+    /// The file of an animated image, for the viewer to play. A file that is in iCloud is downloaded.
+    /// Nil when the file cannot be read.
+    static func animation(for asset: PHAsset) async -> AnimatedPicture? {
+        let options = PHImageRequestOptions()
+        options.isNetworkAccessAllowed = true
+        options.version = .current
+        // The request starts in the continuation. A cancel that comes first has no request to stop yet.
+        let request = RequestBox()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let id = PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { data, _, _, _ in
+                    continuation.resume(returning: data.map(AnimatedPicture.init))
+                }
+                request.set(id)
+            }
+        } onCancel: {
+            request.cancel()
+        }
     }
 
     /// Loads the large pictures of photos before the viewer asks for them, the first photo first.
@@ -130,17 +155,66 @@ enum ViewerPictures {
     static func prepare(_ assets: [PHAsset]) {
         let known = Set(prepared.map(\.localIdentifier))
         let new = assets.filter { !known.contains($0.localIdentifier) }
-        if !new.isEmpty {
-            manager.startCachingImages(for: new, targetSize: pixelSize, contentMode: .aspectFit, options: options)
-        }
         // These photos are let go last. Of these, the first photo is let go last.
         let asked = Set(assets.map(\.localIdentifier))
         prepared.removeAll { asked.contains($0.localIdentifier) }
         prepared.append(contentsOf: assets.reversed())
-        guard prepared.count > limit else { return }
-        let old = Array(prepared.prefix(prepared.count - limit))
+        let old = Array(prepared.prefix(max(prepared.count - limit, 0)))
         prepared.removeFirst(old.count)
-        manager.stopCachingImages(for: old, targetSize: pixelSize, contentMode: .aspectFit, options: options)
+        guard !new.isEmpty || !old.isEmpty else { return }
+        let manager = manager
+        let size = pixelSize
+        // Like an image request, these calls can wait for the photo library.
+        PHImageManager.requests.async {
+            // The same size and options as the viewer asks for. Otherwise it loads a prepared picture again.
+            let options = PHImageRequestOptions.opportunistic(network: true)
+            if !new.isEmpty {
+                manager.startCachingImages(for: new, targetSize: size, contentMode: .aspectFit, options: options)
+            }
+            if !old.isEmpty {
+                manager.stopCachingImages(for: old, targetSize: size, contentMode: .aspectFit, options: options)
+            }
+        }
+    }
+}
+
+/// The file of an animated image, such as a GIF. A class: a view tells one from another without
+/// a look at the bytes.
+final class AnimatedPicture: Sendable {
+    let data: Data
+
+    init(data: Data) { self.data = data }
+}
+
+/// An image request that a cancelled task can stop.
+private final class RequestBox: @unchecked Sendable {
+    private let manager: PHImageManager
+    private let lock = NSLock()
+    private var id: PHImageRequestID?
+    private var cancelled = false
+
+    init(manager: PHImageManager = .default()) { self.manager = manager }
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func set(_ id: PHImageRequestID) {
+        lock.lock()
+        self.id = id
+        let stop = cancelled
+        lock.unlock()
+        if stop { manager.cancelImageRequest(id) }
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let id = id
+        lock.unlock()
+        if let id { manager.cancelImageRequest(id) }
     }
 }
 

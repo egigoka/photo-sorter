@@ -299,12 +299,16 @@ private struct ZoomablePhoto: View {
     let close: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The setting "Auto-Play Animated Images" of iOS.
+    @Environment(\.accessibilityPlayAnimatedImages) private var playsAnimations
     @State private var image: UIImage?
+    /// The file of an animated image, such as a GIF. It plays while the photo is the shown photo.
+    @State private var animation: AnimatedPicture?
     /// Distance that a drag down has pulled the photo.
     @State private var pull: CGFloat = 0
 
     var body: some View {
-        ZoomScroll(image: image, active: active) { distance in
+        ZoomScroll(image: image, animation: active && playsAnimations ? animation : nil, active: active) { distance in
             pull = distance
         } released: { far in
             if far {
@@ -324,6 +328,11 @@ private struct ZoomablePhoto: View {
             .accessibilityAddTraits(.isImage)
             .task(id: asset.localIdentifier) {
                 for await next in ViewerPictures.images(for: asset) { image = next }
+            }
+            // Only the shown photo reads its file: a GIF can be large.
+            .task(id: active && playsAnimations) {
+                guard active, playsAnimations, animation == nil, asset.playbackStyle == .imageAnimated else { return }
+                animation = await ViewerPictures.animation(for: asset)
             }
     }
 }
@@ -436,6 +445,8 @@ private struct ShareSheet: UIViewControllerRepresentable {
 /// SwiftUI has no zooming scroll view, so this wraps UIScrollView.
 private struct ZoomScroll: UIViewRepresentable {
     let image: UIImage?
+    /// The frames to play in place of the picture. Nil for a still picture.
+    let animation: AnimatedPicture?
     let active: Bool
     /// Gets the distance of a drag down on a photo that is not zoomed.
     let pulled: (CGFloat) -> Void
@@ -448,6 +459,7 @@ private struct ZoomScroll: UIViewRepresentable {
         view.pulled = pulled
         view.released = released
         view.show(image)
+        view.play(animation)
         if !active { view.resetZoom() }
     }
 }
@@ -461,6 +473,10 @@ private final class ZoomScrollView: UIScrollView, UIScrollViewDelegate {
     private let imageView = UIImageView()
     private let pull = UIPanGestureRecognizer()
     private var fittedBounds = CGSize.zero
+    /// The picture that shows when no animation plays.
+    private var still: UIImage?
+    /// The animation that plays now.
+    private var playing: AnimatedPicture?
 
     init() {
         super.init(frame: .zero)
@@ -482,10 +498,33 @@ private final class ZoomScrollView: UIScrollView, UIScrollViewDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     func show(_ image: UIImage?) {
-        guard imageView.image !== image else { return }
-        imageView.image = image
+        guard still !== image else { return }
+        still = image
+        // The frames of an animation stay in place of the still picture.
+        if playing == nil { imageView.image = image }
         // A sharper copy of the same photo keeps the current zoom.
         if zoomScale == 1 { fit() }
+    }
+
+    /// Plays the frames of an animated image again and again. Nil goes back to the still picture.
+    func play(_ animation: AnimatedPicture?) {
+        guard playing !== animation else { return }
+        playing = animation
+        guard let animation else {
+            imageView.image = still
+            return
+        }
+        let options = [kCGImageAnimationLoopCount: kCFNumberPositiveInfinity] as CFDictionary
+        // ImageIO calls the block on the main queue, at the time of each frame.
+        CGAnimateImageDataWithBlock(animation.data as CFData, options) { [weak self] _, frame, stop in
+            guard let self, self.playing === animation else {
+                stop.pointee = true
+                return
+            }
+            self.imageView.image = UIImage(cgImage: frame)
+            // The frames can come before the still picture.
+            if self.imageView.frame.isEmpty { self.fit() }
+        }
     }
 
     func resetZoom() {
@@ -500,7 +539,7 @@ private final class ZoomScrollView: UIScrollView, UIScrollViewDelegate {
     private func fit() {
         fittedBounds = bounds.size
         zoomScale = 1
-        guard let size = imageView.image?.size, size.width > 0, size.height > 0, bounds.width > 0 else { return }
+        guard let size = (still ?? imageView.image)?.size, size.width > 0, size.height > 0, bounds.width > 0 else { return }
         let scale = min(bounds.width / size.width, bounds.height / size.height)
         imageView.frame = CGRect(x: 0, y: 0, width: size.width * scale, height: size.height * scale)
         contentSize = imageView.frame.size
