@@ -15,24 +15,34 @@ struct PileRoute: Hashable {
 
 struct HomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.tableIsWide) private var wide
     @State private var path: [PileRoute] = []
     /// The pile that is opening. Everything else on the table fades out around it.
     @State private var opening: Category?
+    @State private var span = Span()
 
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 34) {
-                    Summary()
-                        .opacity(opening == nil ? 1 : 0)
-                    ForEach(PileGroup.all) { group in
-                        PileSection(group: group, opening: opening, open: open)
+                // A wide table has two columns. The reading order stays the same: the first column, then the second.
+                TableColumns(wide: wide, fold: span.fold) {
+                    VStack(alignment: .leading, spacing: 34) {
+                        Summary()
+                            .opacity(opening == nil ? 1 : 0)
+                        ForEach(PileGroup.all.prefix(1)) { group in
+                            PileSection(group: group, opening: opening, open: open)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 34) {
+                        ForEach(PileGroup.all.dropFirst()) { group in
+                            PileSection(group: group, opening: opening, open: open)
+                        }
                     }
                 }
-                .padding(.horizontal, 20)
+                .onSpanChange { span = $0 }
+                .tableMargins(wide: wide)
                 .padding(.top, 20)
                 .padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Color.table)
             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -86,7 +96,7 @@ private struct Summary: View {
             if library.sorted == 0 {
                 Text("Nothing is sorted yet.")
                     .font(.display(40, relativeTo: .largeTitle))
-                Text("Photo Sorter looks at every photo on this iPhone and puts it on a pile. A photo goes to a cleanup pile only when the model sees no real photo in it.")
+                Text("Photo Sorter looks at every photo on this device and puts it on a pile. A photo goes to a cleanup pile only when the model sees no real photo in it.")
                     .foregroundStyle(.secondary)
             } else {
                 Text(statement)
@@ -274,11 +284,18 @@ private final class Spot {
 /// The scan action, fixed to the bottom of the table.
 private struct ScanDock: View {
     @Environment(Library.self) private var library
+    @Environment(\.tableIsWide) private var wide
+    @State private var span = Span()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // On a wide table the progress lies below the first column, and the button below the second.
+        TableColumns(wide: wide, fold: span.fold, spacing: library.scanning ? 12 : 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                if library.scanning {
+                    ScanProgress(done: library.done, skipped: library.skipped, total: library.total, rate: library.rate)
+                }
+            }
             if library.scanning {
-                ScanProgress(done: library.done, skipped: library.skipped, total: library.total, rate: library.rate)
                 Button("Stop", action: library.stopScan)
                     .buttonStyle(OutlineButtonStyle())
             } else {
@@ -286,7 +303,8 @@ private struct ScanDock: View {
                     .buttonStyle(InkButtonStyle())
             }
         }
-        .padding(.horizontal, 20)
+        .onSpanChange { span = $0 }
+        .tableMargins(wide: wide)
         .padding(.top, 12)
         .padding(.bottom, 8)
         .background(Color.table)
@@ -361,53 +379,62 @@ private struct ScanProgress: View {
 
 struct WelcomeView: View {
     @Environment(Library.self) private var library
+    @Environment(\.tableIsWide) private var wide
+    @State private var span = Span()
+    @State private var dockSpan = Span()
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 26) {
+            // On a wide table the mark lies beside the text.
+            TableColumns(wide: wide, fold: span.fold, spacing: 26) {
                 CircledPile()
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
-                Text("Find everything that is not a photo.")
-                    .font(.display(46, relativeTo: .largeTitle))
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Photo Sorter puts your library on piles: screenshots, memes, documents, graphics and real photos.")
-                    Text("A model looks at each photo. If it sees a real photograph, the photo stays with your camera photos.")
-                    Text("Everything runs on this iPhone. No photo leaves it.")
+                VStack(alignment: .leading, spacing: 26) {
+                    Text("Find everything that is not a photo.")
+                        .font(.display(46, relativeTo: .largeTitle))
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Photo Sorter puts your library on piles: screenshots, memes, documents, graphics and real photos.")
+                        Text("A model looks at each photo. If it sees a real photograph, the photo stays with your camera photos.")
+                        Text("Everything runs on this device. No photo leaves it.")
+                    }
                 }
             }
-            .padding(.horizontal, 28)
+            .onSpanChange { span = $0 }
+            .tableMargins(wide: wide, inset: 28, narrowWidth: 520)
             .padding(.top, 28)
             .padding(.bottom, 24)
-            .frame(maxWidth: 520, alignment: .leading)
-            .frame(maxWidth: .infinity)
         }
         .background(Color.table)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 10) {
-                if library.authorization == .notDetermined {
-                    Button("Allow photo access") {
-                        Task { await library.requestAccess() }
-                    }
-                } else {
-                    Text("Photo access is off. Turn it on in Settings to continue.")
-                        .font(.subheadline)
-                        .multilineTextAlignment(.center)
-                    Button("Open Settings") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
+            // On a wide table the action lies below the text.
+            TableColumns(wide: wide, fold: dockSpan.fold, spacing: 0) {
+                Color.clear
+                    .frame(height: 0)
+                VStack(spacing: 10) {
+                    if library.authorization == .notDetermined {
+                        Button("Allow photo access") {
+                            Task { await library.requestAccess() }
+                        }
+                    } else {
+                        Text("Photo access is off. Turn it on in Settings to continue.")
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                        Button("Open Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
                         }
                     }
+                    Text("Nothing is deleted without your confirmation.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                Text("Nothing is deleted without your confirmation.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                .buttonStyle(InkButtonStyle())
             }
-            .buttonStyle(InkButtonStyle())
-            .padding(.horizontal, 28)
+            .onSpanChange { dockSpan = $0 }
+            .tableMargins(wide: wide, inset: 28, narrowWidth: 520)
             .padding(.vertical, 12)
-            .frame(maxWidth: 520)
-            .frame(maxWidth: .infinity)
             .background(Color.table)
         }
     }

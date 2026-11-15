@@ -34,6 +34,7 @@ struct RootView: View {
             if let toast = library.toast {
                 ToastView(text: toast.text, undo: toast.canUndo ? { library.undo() } : nil)
                     .padding(.horizontal, 24)
+                    .besideFold()
                     .padding(.bottom, 92)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }

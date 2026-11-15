@@ -9,6 +9,8 @@ struct CategoryView: View {
     private let top: Int
 
     @Environment(Library.self) private var library
+    @Environment(\.horizontalSizeClass) private var widthClass
+    @Environment(\.toolbarIsVertical) private var toolbarIsVertical
     @State private var assets: [PHAsset]
     @State private var selection: Set<String> = []
     @State private var loaded = false
@@ -24,7 +26,11 @@ struct CategoryView: View {
     /// True when the title in the header is scrolled out of view. The bar shows the title then.
     @State private var titleInBar = false
 
-    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 200), spacing: 2)]
+    /// Width of the contact sheet, and the fold that crosses it.
+    @State private var span = Span()
+
+    /// Smallest side of a frame. A wide sheet has larger frames, not only more of them.
+    private var frameSide: CGFloat { widthClass == .regular ? 140 : 100 }
 
     /// Number of photos that keep their order in the pile. The rest lie under them.
     private static let ranked = 24
@@ -72,11 +78,16 @@ struct CategoryView: View {
                             .padding(.horizontal)
                             .opacity(spread ? 1 : 0)
                             .animation(.easeOut(duration: 0.35), value: spread)
-                        LazyVGrid(columns: columns, spacing: 2) {
+                        let sheet = ContactSheet(span: span, minimum: frameSide)
+                        LazyVGrid(columns: sheet.columns, spacing: ContactSheet.spacing) {
                             ForEach(assets, id: \.localIdentifier) { asset in
                                 cell(asset, rank: ranks[asset.localIdentifier] ?? Self.ranked)
                             }
                         }
+                        .padding(.leading, sheet.inset)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        // Read on the full width, not on the columns: the columns depend on the result.
+                        .onSpanChange { span = $0 }
                     }
                     .padding(.top, 4)
                     .padding(.bottom, 8)
@@ -90,16 +101,24 @@ struct CategoryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.table)
-        .navigationTitle(category.title)
+        .navigationTitle(barTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                // The header shows the title. The bar takes over when the header is out of view.
-                Text(category.title)
-                    .font(.display(22, relativeTo: .headline))
-                    .opacity(titleInBar || assets.isEmpty ? 1 : 0)
-                    .animation(.easeOut(duration: 0.15), value: titleInBar)
-                    .accessibilityHidden(true)
+            // The middle of the bar lies on the fold of a display that folds. There the bar shows
+            // the system title, which iOS puts beside the fold.
+            if span.fold == nil {
+                ToolbarItem(placement: .principal) {
+                    if countInTopBar {
+                        selectionCount
+                    } else {
+                        // The header shows the title. The bar takes over when the header is out of view.
+                        Text(category.title)
+                            .font(.display(22, relativeTo: .headline))
+                            .opacity(titleInBar || assets.isEmpty ? 1 : 0)
+                            .animation(.easeOut(duration: 0.15), value: titleInBar)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if selecting {
@@ -128,16 +147,18 @@ struct CategoryView: View {
                     }
                     .disabled(selection.isEmpty)
                     Spacer()
-                    Text(selection.isEmpty ? "Tap photos to select" : "\(selection.count.formatted()) selected")
-                        .font(.footnote)
-                        .monospacedDigit()
-                        .foregroundStyle(selection.isEmpty ? .secondary : .primary)
-                    Spacer()
+                    if !countInTopBar {
+                        selectionCount
+                        Spacer()
+                    }
+                    // An action with a symbol can move to a vertical bar. Text alone cannot.
                     if category.canIgnore {
-                        Button("Ignore") { ignore(Array(selection)) }
+                        Button("Ignore", systemImage: Category.ignored.symbol) { ignore(Array(selection)) }
+                            .labelStyle(.titleAndIcon)
                             .disabled(selection.isEmpty)
                     } else if category == .ignored {
-                        Button("Unignore") { unignore(Array(selection)) }
+                        Button("Unignore", systemImage: "hand.raised.slash") { unignore(Array(selection)) }
+                            .labelStyle(.titleAndIcon)
                             .disabled(selection.isEmpty)
                     }
                     Button("Delete", systemImage: "trash", role: .destructive) {
@@ -148,6 +169,8 @@ struct CategoryView: View {
                 }
             }
         }
+        // The bar holds Done, so it stays in view while photos are selected.
+        .navigationBarStays(selecting)
         .navigationDestination(item: $viewing) { start in
             PhotoViewer(category: category, assets: assets, start: start, marked: $selection) {
                 remove($0)
@@ -176,7 +199,7 @@ struct CategoryView: View {
         return Button {
             if selecting { toggle(id) } else { viewing = id }
         } label: {
-            ThumbnailView(asset: asset, selected: selected)
+            ThumbnailView(asset: asset, selected: selected, side: frameSide)
                 .overlay {
                     if flies { PrintEdge().opacity(lying ? 1 : 0) }
                 }
@@ -237,6 +260,28 @@ struct CategoryView: View {
         .zIndex(rank < top ? Double(top - rank) : 0)
         .animation(.spring(duration: Self.flight, bounce: 0.1), value: lying)
         .animation(.easeOut(duration: 0.2).delay(Double(rank - top) * 0.005), value: waiting)
+    }
+
+    /// At regular width the top bar has room for the count. A vertical bar takes no text,
+    /// so the count goes to the top bar there too.
+    private var countInTopBar: Bool { selecting && (widthClass == .regular || toolbarIsVertical) }
+
+    private var countText: String {
+        selection.isEmpty ? "Tap photos to select" : "\(selection.count.formatted()) selected"
+    }
+
+    /// The system title of the bar. It shows only on a display that folds: elsewhere the bar has its own title.
+    private var barTitle: String {
+        guard span.fold != nil else { return category.title }
+        if selecting { return countText }
+        return titleInBar || assets.isEmpty ? category.title : ""
+    }
+
+    private var selectionCount: some View {
+        Text(countText)
+            .font(.footnote)
+            .monospacedDigit()
+            .foregroundStyle(selection.isEmpty ? .secondary : .primary)
     }
 
     private func moveButtons(_ ids: @escaping () -> [String]) -> some View {
@@ -362,7 +407,8 @@ private struct CategoryHeader: View {
                         .font(.footnote)
                 }
                 .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                // A line of text that runs the width of a large display is hard to read.
+                .frame(maxWidth: 560, alignment: .leading)
                 .background(Color.sleeve, in: .rect(cornerRadius: 8, style: .continuous))
             }
         }
