@@ -21,6 +21,7 @@
 		C128D38FC9B094DBE0247498 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FC0F1E4D8135401BF9B47C0 /* Theme.swift */; };
 		D20AD686E5F345ECE0293A2B /* PhotoViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86C03493720D88195CFF6D38 /* PhotoViewer.swift */; };
 		EE61A19DAD10008E960D0723 /* pe_core_b16_image.mlmodelc in Resources */ = {isa = PBXBuildFile; fileRef = 3BB3F24939D663DCA9329374 /* pe_core_b16_image.mlmodelc */; };
+		FB464DCE6ED6005D22E874DB /* SwipeSelect.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4CFF0345450AFB94E41C3A /* SwipeSelect.swift */; };
 		FED6607932B9B9FB003EA410 /* labels_pe.json in Resources */ = {isa = PBXBuildFile; fileRef = BF9E7A10B88891D4615A314E /* labels_pe.json */; };
 /* End PBXBuildFile section */
 
@@ -42,6 +43,7 @@
 		BF9E7A10B88891D4615A314E /* labels_pe.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels_pe.json; sourceTree = "<group>"; };
 		CDFBE2A3FF97600642E99116 /* PhotoSorter.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PhotoSorter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBFE851F6DE92EFB3475D61D /* labels_siglip.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels_siglip.json; sourceTree = "<group>"; };
+		FD4CFF0345450AFB94E41C3A /* SwipeSelect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeSelect.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -77,6 +79,7 @@
 				1072FE4D16913C1E5EC29E2B /* Library.swift */,
 				0D26DE282791208DF1FCB3E9 /* PhotoSorterApp.swift */,
 				86C03493720D88195CFF6D38 /* PhotoViewer.swift */,
+				FD4CFF0345450AFB94E41C3A /* SwipeSelect.swift */,
 				6FC0F1E4D8135401BF9B47C0 /* Theme.swift */,
 				F887B9F1B0CC35861F6B25E2 /* Resources */,
 			);
@@ -176,6 +179,7 @@
 				BC7614A7AD3B1A085799B29F /* Library.swift in Sources */,
 				57176EC0CD687336762F7134 /* PhotoSorterApp.swift in Sources */,
 				D20AD686E5F345ECE0293A2B /* PhotoViewer.swift in Sources */,
+				FB464DCE6ED6005D22E874DB /* SwipeSelect.swift in Sources */,
 				C128D38FC9B094DBE0247498 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

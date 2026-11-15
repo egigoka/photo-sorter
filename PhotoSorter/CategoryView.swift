@@ -28,6 +28,10 @@ struct CategoryView: View {
 
     /// Width of the contact sheet, and the fold that crosses it.
     @State private var span = Span()
+    /// The swipe that selects a run of photos. Not observed: see Sweep.
+    @State private var sweep = Sweep()
+    /// Moves the sheet when a swipe reaches its top or bottom edge.
+    @State private var position = ScrollPosition()
 
     /// Smallest side of a frame. A wide sheet has larger frames, not only more of them.
     private var frameSide: CGFloat { widthClass == .regular ? 140 : 100 }
@@ -37,6 +41,9 @@ struct CategoryView: View {
 
     /// Seconds that a print takes from the pile to its place in the grid.
     private static let flight = 0.4
+
+    /// Name of the coordinate space of the scrolling content.
+    private static let sheetSpace = "sheet"
 
     init(category: Category, peek: [PHAsset], origin: PileOrigin?) {
         self.category = category
@@ -95,12 +102,19 @@ struct CategoryView: View {
                     }
                     .padding(.top, 4)
                     .padding(.bottom, 8)
+                    .coordinateSpace(.named(Self.sheetSpace))
                 }
+                .scrollPosition($position)
                 .onScrollGeometryChange(for: Bool.self) { geometry in
                     geometry.contentOffset.y + geometry.contentInsets.top > 44
                 } action: { _, passed in
                     titleInBar = passed
                 }
+                .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { _, geometry in
+                    sweep.scroll = geometry
+                }
+                // In selection mode a sideways swipe selects the photos that it crosses.
+                .gesture(SidewaysPan(enabled: selecting, began: sweepBegan, moved: sweepMoved, ended: sweep.end))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -200,6 +214,7 @@ struct CategoryView: View {
         // True while the photo waits for the prints of the pile to leave.
         let waiting = rank >= top && !dealt
         let origin = origin
+        let sweep = sweep
         // Only a print that flies out of the pile has a paper border and a shadow.
         let flies = rank < top && origin != nil
         return Button {
@@ -256,6 +271,14 @@ struct CategoryView: View {
                 )
         }
         .opacity(waiting ? 0 : 1)
+        // The swipe that selects photos finds the photo under the finger by its frame.
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .named(Self.sheetSpace))
+        } action: {
+            sweep.frames[id] = $0
+        }
+        .onAppear { sweep.inView.insert(id) }
+        .onDisappear { sweep.inView.remove(id) }
         // A photo that stays in view is likely to be opened. A fast scroll does not start a load.
         .task(id: id) {
             try? await Task.sleep(for: .milliseconds(500))
@@ -273,7 +296,7 @@ struct CategoryView: View {
     private var countInTopBar: Bool { selecting && (widthClass == .regular || toolbarIsVertical) }
 
     private var countText: String {
-        selection.isEmpty ? "Tap photos to select" : "\(selection.count.formatted()) selected"
+        selection.isEmpty ? "Tap or swipe to select" : "\(selection.count.formatted()) selected"
     }
 
     /// The system title of the bar. It shows only on a display that folds: elsewhere the bar has its own title.
@@ -306,6 +329,35 @@ struct CategoryView: View {
 
     private func toggle(_ id: String) {
         if selection.contains(id) { selection.remove(id) } else { selection.insert(id) }
+    }
+
+    private func sweepBegan(at point: CGPoint) {
+        sweep.begin(ids: assets.map(\.localIdentifier), selection: selection)
+    }
+
+    private func sweepMoved(to point: CGPoint) {
+        if let swept = sweep.move(to: point), swept != selection { selection = swept }
+        guard sweep.scroller == nil, sweep.edgeSpeed != 0 else { return }
+        // The finger rests near the edge, so no more moves come. The sheet scrolls by itself.
+        sweep.scroller = Task {
+            var last = ContinuousClock.now
+            // The scroll position counts from the start of the sheet. The loop keeps its own count:
+            // the scroll view reports a move one frame late.
+            var scrolled = sweep.scrolled
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(16))
+                let now = ContinuousClock.now
+                guard !Task.isCancelled, let next = sweep.scrolled(from: scrolled, after: now - last) else { break }
+                last = now
+                scrolled = next
+                position.scrollTo(y: next)
+                // Other photos come under the finger.
+                if let finger = sweep.finger, let swept = sweep.move(to: finger), swept != selection {
+                    selection = swept
+                }
+            }
+            if !Task.isCancelled { sweep.scroller = nil }
+        }
     }
 
     private var emptyText: String {
