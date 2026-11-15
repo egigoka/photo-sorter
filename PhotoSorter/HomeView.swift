@@ -66,9 +66,11 @@ struct HomeView: View {
     /// Opens a pile. The table clears around the pile, then the grid takes over with the prints
     /// still in place, so they fly from the pile to their places in the grid.
     private func open(_ route: PileRoute) {
-        guard opening == nil else { return }
+        // A pile opens from the table only. While a grid still closes, the path is not empty, and
+        // the navigation stack can lose a push that comes at that time.
+        guard opening == nil, path.isEmpty else { return }
         guard route.origin != nil, !reduceMotion else {
-            path.append(PileRoute(category: route.category, peek: route.peek, origin: nil))
+            path = [PileRoute(category: route.category, peek: route.peek, origin: nil)]
             return
         }
         withAnimation(.easeOut(duration: 0.1)) { opening = route.category }
@@ -77,7 +79,8 @@ struct HomeView: View {
             var instant = Transaction()
             instant.disablesAnimations = true
             withTransaction(instant) {
-                path.append(route)
+                // One pile is open at a time.
+                path = [route]
                 opening = nil
             }
         }
