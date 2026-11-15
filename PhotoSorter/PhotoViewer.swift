@@ -34,9 +34,14 @@ struct PhotoViewer: View {
     @State private var reviewing = false
     /// True when the sheet closes to delete the marked photos.
     @State private var deleteAfterReview = false
+    /// Width of the viewer, and the fold that crosses it.
+    @State private var span = Span()
+    /// The photo to keep in view while the viewer changes its width.
+    @State private var held: String?
 
     private var shownIndex: Int? {
-        let id = position.viewID(type: String.self)
+        // The scroll position is not correct while the width changes.
+        let id = held ?? position.viewID(type: String.self)
         return assets.firstIndex { $0.localIdentifier == id }
     }
 
@@ -49,52 +54,83 @@ struct PhotoViewer: View {
     var body: some View {
         // The reader gives the space between the bars, so a zoomed photo never hides under them.
         GeometryReader { proxy in
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
-                    ForEach(assets, id: \.localIdentifier) { asset in
-                        ZoomablePhoto(asset: asset, active: asset.localIdentifier == shown?.localIdentifier) { dismiss() }
-                            .frame(width: proxy.size.width, height: proxy.size.height)
+            // The pages go from edge to edge. Paging does not line up in a scroll view that the safe area
+            // makes narrower. Each page keeps its photo in the safe area.
+            let sides = proxy.safeAreaInsets
+            let width = proxy.size.width + sides.leading + sides.trailing
+            ScrollViewReader { reader in
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(assets, id: \.localIdentifier) { asset in
+                            ZoomablePhoto(asset: asset, active: asset.localIdentifier == shown?.localIdentifier) { dismiss() }
+                                // A photo does not lie across a display that is bent.
+                                .besideFold(span)
+                                .padding(.leading, sides.leading)
+                                .padding(.trailing, sides.trailing)
+                                .frame(width: width, height: proxy.size.height)
+                        }
+                    }
+                    .scrollTargetLayout()
+                    // The stack keeps the old width of the pages that are out of view, and then no page
+                    // lines up. A new stack measures all pages again.
+                    .id(width)
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition($position)
+                .scrollIndicators(.hidden)
+                // A scroll position that starts on a photo does not always reach it, so move there on appear.
+                .onAppear { position.scrollTo(id: start, anchor: .leading) }
+                // A window that changes its width gets new pages, and the scroll does not stay on its photo.
+                // The scroll goes back to the photo that was shown before the change.
+                .onChange(of: width) {
+                    if held == nil { held = shown?.localIdentifier }
+                }
+                .task(id: width) {
+                    guard let held else { return }
+                    // The scroll position does not move for the photo that it has already, so the reader scrolls.
+                    reader.scrollTo(held, anchor: .leading)
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    reader.scrollTo(held, anchor: .leading)
+                    self.held = nil
+                }
+                // Scrolling before the page is gone lands on the wrong photo, so wait for the new list.
+                .onChange(of: assets.map(\.localIdentifier)) { _, ids in
+                    if let next {
+                        position.scrollTo(id: next, anchor: .leading)
+                        self.next = nil
+                    } else if let taken, ids.contains(taken) {
+                        position.scrollTo(id: taken, anchor: .leading)
+                        self.taken = nil
                     }
                 }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition($position)
-            .scrollIndicators(.hidden)
-            // A scroll position that starts on a photo does not always reach it, so move there on appear.
-            .onAppear { position.scrollTo(id: start, anchor: .leading) }
-            // Scrolling before the page is gone lands on the wrong photo, so wait for the new list.
-            .onChange(of: assets.map(\.localIdentifier)) { _, ids in
-                if let next {
-                    position.scrollTo(id: next, anchor: .leading)
-                    self.next = nil
-                } else if let taken, ids.contains(taken) {
-                    position.scrollTo(id: taken, anchor: .leading)
-                    self.taken = nil
+                .onChange(of: position.viewID(type: String.self)) { old, new in
+                    // Only a move between two photos of the list sets the direction. A photo that was
+                    // taken out is not in the list.
+                    guard held == nil,
+                          let from = assets.firstIndex(where: { $0.localIdentifier == old }),
+                          let to = assets.firstIndex(where: { $0.localIdentifier == new }),
+                          from != to
+                    else { return }
+                    backward = to < from
                 }
-            }
-            .onChange(of: position.viewID(type: String.self)) { old, new in
-                // Only a move between two photos of the list sets the direction. A photo that was
-                // taken out is not in the list.
-                guard let from = assets.firstIndex(where: { $0.localIdentifier == old }),
-                      let to = assets.firstIndex(where: { $0.localIdentifier == new }),
-                      from != to
-                else { return }
-                backward = to < from
-            }
-            // A swipe that comes to rest between two photos moves on to the nearer photo.
-            .onScrollPhaseChange { _, phase, context in
-                guard phase == .idle else { return }
-                let width = context.geometry.containerSize.width
-                let offset = context.geometry.contentOffset.x
-                guard width > 0 else { return }
-                let page = (offset / width).rounded()
-                guard abs(offset - page * width) > 1, assets.indices.contains(Int(page)) else { return }
-                withAnimation(reduceMotion ? nil : .default) {
-                    position.scrollTo(id: assets[Int(page)].localIdentifier, anchor: .leading)
+                // A swipe that comes to rest between two photos moves on to the nearer photo.
+                .onScrollPhaseChange { _, phase, context in
+                    // A resize puts the held photo in place. A snap must not move it.
+                    guard phase == .idle, held == nil else { return }
+                    let width = context.geometry.containerSize.width
+                    let offset = context.geometry.contentOffset.x
+                    guard width > 0 else { return }
+                    let page = (offset / width).rounded()
+                    guard abs(offset - page * width) > 1, assets.indices.contains(Int(page)) else { return }
+                    withAnimation(reduceMotion ? nil : .default) {
+                        position.scrollTo(id: assets[Int(page)].localIdentifier, anchor: .leading)
+                    }
                 }
+                .ignoresSafeArea(.container, edges: .horizontal)
             }
         }
+        .onSpanChange(horizontalFold: true) { span = $0 }
         .background(Color.table)
         // The grid is covered and does not reload by itself. Undo can put a photo back in the category.
         .task(id: library.scanning ? nil : library.count(in: category)) { await reload() }
@@ -116,6 +152,7 @@ struct PhotoViewer: View {
             }
             .font(.footnote)
             .frame(maxWidth: .infinity)
+            .besideFold(span.columnsOnly)
             .padding(.vertical, 8)
             .background(Color.table)
         }
@@ -150,18 +187,21 @@ struct PhotoViewer: View {
                     }
                 }
                 Spacer()
+                // An action with a symbol can move to a vertical bar. Text alone cannot.
                 if category.canIgnore {
-                    Button("Ignore") {
+                    Button("Ignore", systemImage: Category.ignored.symbol) {
                         guard let id = shown?.localIdentifier else { return }
                         library.ignore([id])
                         takeOut(id)
                     }
+                    .labelStyle(.titleAndIcon)
                 } else if category == .ignored {
-                    Button("Unignore") {
+                    Button("Unignore", systemImage: "hand.raised.slash") {
                         guard let id = shown?.localIdentifier else { return }
                         library.unignore([id])
                         takeOut(id)
                     }
+                    .labelStyle(.titleAndIcon)
                 }
                 if shownIsMarked {
                     Button("Keep", systemImage: "trash.slash") {
@@ -379,7 +419,15 @@ private struct ShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ host: UIViewController, context: Context) {
         guard let file, host.presentedViewController == nil else { return }
         let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
-        sheet.popoverPresentationController?.sourceView = host.view
+        if let popover = sheet.popoverPresentationController {
+            // On iPad the sheet is a popover. It points at the Share button: the first button of the
+            // bar below this view.
+            let bounds = host.view.bounds
+            let leftToRight = host.view.effectiveUserInterfaceLayoutDirection == .leftToRight
+            popover.sourceView = host.view
+            popover.sourceRect = CGRect(x: leftToRight ? bounds.minX + 32 : bounds.maxX - 32, y: bounds.maxY, width: 1, height: 1)
+            popover.permittedArrowDirections = .down
+        }
         sheet.completionWithItemsHandler = { _, _, _, _ in self.file = nil }
         host.present(sheet, animated: true)
     }

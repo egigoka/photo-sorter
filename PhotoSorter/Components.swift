@@ -150,14 +150,17 @@ enum ViewerPictures {
 struct ThumbnailView: View {
     let asset: PHAsset
     let selected: Bool
+    /// Smallest side of the frame on the sheet. The picture is loaded large enough for it.
+    let side: CGFloat
 
     @Environment(\.displayScale) private var displayScale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var image: UIImage?
 
-    init(asset: PHAsset, selected: Bool) {
+    init(asset: PHAsset, selected: Bool, side: CGFloat = 100) {
         self.asset = asset
         self.selected = selected
+        self.side = side
         // A one-time seed: the picture of the print on the pile, until the sharper one is loaded.
         _image = State(initialValue: LoadedPictures[asset.localIdentifier])
     }
@@ -180,7 +183,8 @@ struct ThumbnailView: View {
             }
             .contentShape(.rect)
             .task(id: asset.localIdentifier) {
-                let side = 130 * displayScale
+                // A frame grows to about a third more than its smallest side before one more fits in the row.
+                let side = side * 1.3 * displayScale
                 let stream = PHImageManager.default().images(
                     for: asset, pixelSize: CGSize(width: side, height: side), contentMode: .aspectFill, network: false
                 )
