@@ -38,7 +38,7 @@ struct Fold: Equatable, Sendable {
         for region in proxy.reservedRegions(kind: .division, options: .includeInactive) {
             let frame = region.frame
             // iOS can report a fold that is not active without a frame.
-            if frame.isEmpty { return Fold(edges: nil, isActive: false) }
+            if frame.height <= 0 { return Fold(edges: nil, isActive: false) }
             // A fold that lies across scrolling content needs no room.
             if frame.height > frame.width { return Fold(edges: frame.minX...frame.maxX, isActive: region.isActive) }
         }

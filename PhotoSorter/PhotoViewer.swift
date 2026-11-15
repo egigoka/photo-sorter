@@ -116,7 +116,8 @@ struct PhotoViewer: View {
                 }
                 // A swipe that comes to rest between two photos moves on to the nearer photo.
                 .onScrollPhaseChange { _, phase, context in
-                    guard phase == .idle else { return }
+                    // A resize puts the held photo in place. A snap must not move it.
+                    guard phase == .idle, held == nil else { return }
                     let width = context.geometry.containerSize.width
                     let offset = context.geometry.contentOffset.x
                     guard width > 0 else { return }

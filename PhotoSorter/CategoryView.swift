@@ -62,12 +62,15 @@ struct CategoryView: View {
         Group {
             if !loaded && assets.isEmpty {
                 ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .besideFold(span)
             } else if assets.isEmpty {
                 ContentUnavailableView {
                     Label("Nothing here", systemImage: category.symbol)
                 } description: {
                     Text(emptyText)
                 }
+                .besideFold(span)
             } else {
                 let ranks = Dictionary(
                     uniqueKeysWithValues: assets.prefix(Self.ranked).enumerated().map { ($1.localIdentifier, $0) }
@@ -76,6 +79,9 @@ struct CategoryView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         CategoryHeader(category: category, count: loaded ? assets.count : library.count(in: category))
                             .padding(.horizontal)
+                            // The caution does not lie across a display that is bent.
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .besideFold(span.columnsOnly)
                             .opacity(spread ? 1 : 0)
                             .animation(.easeOut(duration: 0.35), value: spread)
                         let sheet = ContactSheet(span: span, minimum: frameSide)
@@ -86,8 +92,6 @@ struct CategoryView: View {
                         }
                         .padding(.leading, sheet.inset)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        // Read on the full width, not on the columns: the columns depend on the result.
-                        .onSpanChange { span = $0 }
                     }
                     .padding(.top, 4)
                     .padding(.bottom, 8)
@@ -100,6 +104,8 @@ struct CategoryView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Read here, not on the grid: an empty pile has no grid, and the columns depend on the result.
+        .onSpanChange(horizontalFold: true) { span = $0 }
         .background(Color.table)
         .navigationTitle(barTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -273,7 +279,7 @@ struct CategoryView: View {
     /// The system title of the bar. It shows only on a display that folds: elsewhere the bar has its own title.
     private var barTitle: String {
         guard span.fold != nil else { return category.title }
-        if selecting { return countText }
+        if countInTopBar { return countText }
         return titleInBar || assets.isEmpty ? category.title : ""
     }
 
