@@ -1,21 +1,36 @@
-"""Convert the SigLIP2 ViT-B/16 image encoder to Core ML and embed the category prompts."""
+"""Convert a CLIP-style image encoder to Core ML and embed the category prompts.
+
+Usage: clip_convert.py <siglip|pe> <labels.json> <out dir> <test image dir>
+
+<labels.json> gives the prompts: any Resources/labels_*.json works, the embeddings in it are ignored.
+Compile the result with: xcrun coremlcompiler compile <out dir>/<name>_image.mlpackage Models
+"""
 import sys, json, glob, numpy as np, torch, open_clip, coremltools as ct
 from PIL import Image
 
-labels_in, out_dir, test_dir = sys.argv[1], sys.argv[2], sys.argv[3]
-NAME = "ViT-B-16-SigLIP2"
-model, _, preprocess = open_clip.create_model_and_transforms(NAME, pretrained="webli")
+# Key: OpenCLIP model, pretrained tag, name of the Core ML model, name of the labels file.
+MODELS = {
+    "siglip": ("ViT-B-16-SigLIP2", "webli", "siglip2_b16", "labels_siglip"),
+    "pe": ("hf-hub:timm/PE-Core-B-16", None, "pe_core_b16", "labels_pe"),
+}
+
+key, labels_in, out_dir, test_dir = sys.argv[1:5]
+NAME, pretrained, model_name, labels_name = MODELS[key]
+model, _, preprocess = open_clip.create_model_and_transforms(NAME, pretrained=pretrained)
 model.eval()
 print(preprocess)
+# The Core ML input below maps pixels to -1...1 at 224 x 224. The model must expect the same.
+normalize = next(t for t in preprocess.transforms if hasattr(t, "mean"))
+assert tuple(normalize.mean) == (0.5, 0.5, 0.5) and tuple(normalize.std) == (0.5, 0.5, 0.5), normalize
 tokenizer = open_clip.get_tokenizer(NAME)
 
 prompts = [(p["category"], p["prompt"]) for p in json.load(open(labels_in))["prompts"]]
 with torch.no_grad():
     text = torch.nn.functional.normalize(model.encode_text(tokenizer([p for _, p in prompts])), dim=-1).numpy()
 scale = float(model.logit_scale.exp())
-json.dump({"model": "siglip2_b16", "scale": scale, "prompts": [
+json.dump({"model": model_name, "scale": scale, "prompts": [
     {"category": c, "prompt": p, "embedding": [round(float(x), 6) for x in e]} for (c, p), e in zip(prompts, text)
-]}, open(f"{out_dir}/labels_siglip.json", "w"))
+]}, open(f"{out_dir}/{labels_name}.json", "w"))
 print("scale", scale, "dim", text.shape)
 
 class ImageEncoder(torch.nn.Module):
@@ -34,7 +49,7 @@ ml = ct.convert(
     minimum_deployment_target=ct.target.iOS17,
     compute_precision=ct.precision.FLOAT16,
 )
-ml.save(f"{out_dir}/siglip2_b16_image.mlpackage")
+ml.save(f"{out_dir}/{model_name}_image.mlpackage")
 
 cats = [c for c, _ in prompts]
 def report(tag, e):

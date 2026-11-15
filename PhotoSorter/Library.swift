@@ -41,12 +41,16 @@ final class Library {
             let category: String
             let confidence: Float
             let before: String?
+            let ignoredAt: Date?
         }
         if let data = try? Data(contentsOf: Self.storeURL),
            let saved = try? JSONDecoder().decode([String: Stored].self, from: data) {
             items = saved.compactMapValues { stored in
                 Category(rawValue: stored.category).map {
-                    Item(category: $0, confidence: stored.confidence, before: stored.before.flatMap(Category.init(rawValue:)))
+                    Item(
+                        category: $0, confidence: stored.confidence,
+                        before: stored.before.flatMap(Category.init(rawValue:)), ignoredAt: stored.ignoredAt
+                    )
                 }
             }
             recount()
@@ -150,6 +154,21 @@ final class Library {
 
     func stopScan() {
         task?.cancel()
+    }
+
+    /// True when a scan has results to forget.
+    var canResetScan: Bool { !scanning && sorted > count(in: .ignored) }
+
+    /// Forgets every result and every move between piles, then sorts the library again.
+    /// Ignored photos stay ignored.
+    func resetScan() {
+        guard canResetScan else { return }
+        // Undo must not bring back a forgotten result.
+        dismissToast()
+        items = items.filter { $0.value.category == .ignored }
+        recount()
+        persist()
+        startScan()
     }
 
     private func begin(present: Set<String>, pending: Int) {

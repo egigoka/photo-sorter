@@ -20,6 +20,8 @@
 		BC7614A7AD3B1A085799B29F /* Library.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1072FE4D16913C1E5EC29E2B /* Library.swift */; };
 		C128D38FC9B094DBE0247498 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FC0F1E4D8135401BF9B47C0 /* Theme.swift */; };
 		D20AD686E5F345ECE0293A2B /* PhotoViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86C03493720D88195CFF6D38 /* PhotoViewer.swift */; };
+		EE61A19DAD10008E960D0723 /* pe_core_b16_image.mlmodelc in Resources */ = {isa = PBXBuildFile; fileRef = 3BB3F24939D663DCA9329374 /* pe_core_b16_image.mlmodelc */; };
+		FED6607932B9B9FB003EA410 /* labels_pe.json in Resources */ = {isa = PBXBuildFile; fileRef = BF9E7A10B88891D4615A314E /* labels_pe.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +31,7 @@
 		21AA0FBA8A326FC33294D65D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3933C0A07D1CD24C7D406D52 /* Adaptive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Adaptive.swift; sourceTree = "<group>"; };
 		3B05BABF4E1E617C3CEC4B82 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		3BB3F24939D663DCA9329374 /* pe_core_b16_image.mlmodelc */ = {isa = PBXFileReference; lastKnownFileType = folder; name = pe_core_b16_image.mlmodelc; path = Models/pe_core_b16_image.mlmodelc; sourceTree = SOURCE_ROOT; };
 		6A8C944C976B10EAD6BDB44D /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		6FC0F1E4D8135401BF9B47C0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8013629A6099487A0E001C9E /* CategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryView.swift; sourceTree = "<group>"; };
@@ -36,6 +39,7 @@
 		88C06D94564F116BC3DE8663 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8E7EBD47D8E106341E8043A5 /* siglip2_b16_image.mlmodelc */ = {isa = PBXFileReference; lastKnownFileType = folder; name = siglip2_b16_image.mlmodelc; path = Models/siglip2_b16_image.mlmodelc; sourceTree = SOURCE_ROOT; };
 		B7ED6BF5BA175317D92A7775 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		BF9E7A10B88891D4615A314E /* labels_pe.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels_pe.json; sourceTree = "<group>"; };
 		CDFBE2A3FF97600642E99116 /* PhotoSorter.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PhotoSorter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBFE851F6DE92EFB3475D61D /* labels_siglip.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels_siglip.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -52,6 +56,7 @@
 		B04D19A9F0A1D3ED318C44A8 = {
 			isa = PBXGroup;
 			children = (
+				3BB3F24939D663DCA9329374 /* pe_core_b16_image.mlmodelc */,
 				8E7EBD47D8E106341E8043A5 /* siglip2_b16_image.mlmodelc */,
 				B5EB7401D6D318D908C900CC /* PhotoSorter */,
 				8FCADD7E40B8C54F694CC379 /* Products */,
@@ -81,6 +86,7 @@
 		F887B9F1B0CC35861F6B25E2 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				BF9E7A10B88891D4615A314E /* labels_pe.json */,
 				DBFE851F6DE92EFB3475D61D /* labels_siglip.json */,
 			);
 			path = Resources;
@@ -148,7 +154,9 @@
 			files = (
 				88EA46AB3DF76150A8277D52 /* AppIcon.icon in Resources */,
 				4208F28E20B9C5651290C5BF /* Assets.xcassets in Resources */,
+				FED6607932B9B9FB003EA410 /* labels_pe.json in Resources */,
 				A4007D0543237063842BD029 /* labels_siglip.json in Resources */,
+				EE61A19DAD10008E960D0723 /* pe_core_b16_image.mlmodelc in Resources */,
 				AA2AB625BB6EB9E089684FD4 /* siglip2_b16_image.mlmodelc in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

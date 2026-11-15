@@ -54,6 +54,9 @@ struct HomeView: View {
             .navigationTitle("Photo Sorter")
             // The summary sentence is the headline of this screen, so the title stays small.
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { ResetScanButton() }
+            }
             .navigationDestination(for: PileRoute.self) { route in
                 CategoryView(category: route.category, peek: route.peek, origin: route.origin)
             }
@@ -315,6 +318,22 @@ private struct ScanDock: View {
         if library.sorted == 0 { return "Scan library" }
         let remaining = library.total - library.done - library.skipped
         return remaining > 0 ? "Resume scan" : "Scan new photos"
+    }
+}
+
+/// Starts the scan from the beginning, after a confirmation.
+private struct ResetScanButton: View {
+    @Environment(Library.self) private var library
+    @State private var confirming = false
+
+    var body: some View {
+        Button("Scan all again", systemImage: "arrow.counterclockwise") { confirming = true }
+            .disabled(!library.canResetScan)
+            .confirmationDialog("Scan all photos again?", isPresented: $confirming, titleVisibility: .visible) {
+                Button("Scan all again", role: .destructive, action: library.resetScan)
+            } message: {
+                Text("Photo Sorter forgets its results and your moves between piles. Ignored photos stay ignored.")
+            }
     }
 }
 

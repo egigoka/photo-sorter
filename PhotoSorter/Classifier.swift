@@ -82,10 +82,14 @@ final class Classifier: @unchecked Sendable {
     private let labels: [Label]
     private let embeddings: [[Float]]
 
-    /// The models that vote on a photo. A second model with a different architecture, training data
-    /// and loss makes the cleanup piles safer: a photo then leaves the camera pile only when both agree.
+    /// The models that vote on a photo: SigLIP 2 and Perception Encoder, both ViT-B/16. They differ in
+    /// training data and loss, so the cleanup piles are safer: a photo leaves the camera pile only
+    /// when both agree.
     static func loadAll() throws -> [Classifier] {
-        [try Classifier(model: "siglip2_b16_image", labels: "labels_siglip")]
+        [
+            try Classifier(model: "siglip2_b16_image", labels: "labels_siglip"),
+            try Classifier(model: "pe_core_b16_image", labels: "labels_pe"),
+        ]
     }
 
     init(model modelName: String, labels labelsName: String) throws {

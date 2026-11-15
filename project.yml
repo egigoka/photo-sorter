@@ -12,6 +12,9 @@ targets:
       - path: Models/siglip2_b16_image.mlmodelc
         type: folder
         buildPhase: resources
+      - path: Models/pe_core_b16_image.mlmodelc
+        type: folder
+        buildPhase: resources
     info:
       path: PhotoSorter/Info.plist
       properties:
