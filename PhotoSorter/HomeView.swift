@@ -14,39 +14,34 @@ struct PileRoute: Hashable {
 }
 
 struct HomeView: View {
+    @Environment(Library.self) private var library
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.tableIsWide) private var wide
     @State private var path: [PileRoute] = []
     /// The pile that is opening. Everything else on the table fades out around it.
     @State private var opening: Category?
     @State private var span = Span()
+    /// True while the scan has the table: during a scan, and for a moment after it.
+    @State private var staged = false
+    /// Gives the table back after a scan.
+    @State private var wrapUp: Task<Void, Never>?
 
     var body: some View {
         NavigationStack(path: $path) {
-            ScrollView {
-                // A wide table has two columns. The reading order stays the same: the first column, then the second.
-                TableColumns(wide: wide, fold: span.fold) {
-                    VStack(alignment: .leading, spacing: 34) {
-                        Summary()
-                            .opacity(opening == nil ? 1 : 0)
-                        ForEach(PileGroup.all.prefix(1)) { group in
-                            PileSection(group: group, opening: opening, open: open)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 34) {
-                        ForEach(PileGroup.all.dropFirst()) { group in
-                            PileSection(group: group, opening: opening, open: open)
-                        }
-                    }
+            ZStack {
+                table
+                    // The piles stay below the scan, so they are ready when the table comes back.
+                    .opacity(staged ? 0 : 1)
+                    .allowsHitTesting(!staged)
+                    .accessibilityHidden(staged)
+                if staged {
+                    ScanStage()
+                        .transition(.opacity)
                 }
-                .onSpanChange { span = $0 }
-                .tableMargins(wide: wide)
-                .padding(.top, 20)
-                .padding(.bottom, 24)
             }
             .background(Color.table)
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ScanDock()
+                ScanDock(staged: staged)
                     .opacity(opening == nil ? 1 : 0)
                     // The table under the dock stays opaque, so the piles do not show through it.
                     .background(Color.table)
@@ -60,6 +55,47 @@ struct HomeView: View {
             .navigationDestination(for: PileRoute.self) { route in
                 CategoryView(category: route.category, peek: route.peek, origin: route.origin)
             }
+        }
+        .onChange(of: library.scanning, initial: true) { _, scanning in
+            wrapUp?.cancel()
+            if scanning {
+                withAnimation(.easeInOut(duration: 0.3)) { staged = true }
+            } else if staged {
+                // A scan that ran to its end shows its result for a moment. A scan that was stopped
+                // gives the table back at once.
+                let pause = Duration.milliseconds(library.finished ? 1800 : 0)
+                wrapUp = Task {
+                    try? await Task.sleep(for: pause)
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.easeInOut(duration: 0.35)) { staged = false }
+                }
+            }
+        }
+        .sensoryFeedback(trigger: library.finished) { _, finished in finished ? .success : nil }
+    }
+
+    /// The piles, in their groups.
+    private var table: some View {
+        ScrollView {
+            // A wide table has two columns. The reading order stays the same: the first column, then the second.
+            TableColumns(wide: wide, fold: span.fold) {
+                VStack(alignment: .leading, spacing: 34) {
+                    Summary()
+                        .opacity(opening == nil ? 1 : 0)
+                    ForEach(PileGroup.all.prefix(1)) { group in
+                        PileSection(group: group, opening: opening, open: open)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 34) {
+                    ForEach(PileGroup.all.dropFirst()) { group in
+                        PileSection(group: group, opening: opening, open: open)
+                    }
+                }
+            }
+            .onSpanChange { span = $0 }
+            .tableMargins(wide: wide)
+            .padding(.top, 20)
+            .padding(.bottom, 24)
         }
     }
 
@@ -135,7 +171,7 @@ private struct Summary: View {
 }
 
 /// A thin bar split in proportion to the given counts.
-private struct ShareStrip: View {
+struct ShareStrip: View {
     struct Part: Identifiable {
         let id: String
         let color: Color
@@ -164,7 +200,7 @@ private struct ShareStrip: View {
 
 // MARK: Piles
 
-private struct PileGroup: Identifiable {
+struct PileGroup: Identifiable {
     let title: String
     /// Pencil color of the group. The same color marks its share in the summary strip.
     let mark: Color
@@ -289,16 +325,22 @@ private final class Spot {
 
 /// The scan action, fixed to the bottom of the table.
 private struct ScanDock: View {
+    /// True while the scan has the table.
+    let staged: Bool
+
     @Environment(Library.self) private var library
     @Environment(\.tableIsWide) private var wide
     @State private var span = Span()
 
     var body: some View {
-        // On a wide table the progress lies below the first column, and the button below the second.
-        TableColumns(wide: wide, fold: span.fold, spacing: library.scanning ? 12 : 0) {
+        // On a wide table the note lies below the first column, and the button below the second.
+        TableColumns(wide: wide, fold: span.fold, spacing: library.scanning ? 10 : 0) {
             VStack(alignment: .leading, spacing: 0) {
                 if library.scanning {
-                    ScanProgress(done: library.done, skipped: library.skipped, total: library.total, rate: library.rate)
+                    Text("Keep Photo Sorter open. Progress is saved if you stop or close the app.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             if library.scanning {
@@ -307,6 +349,10 @@ private struct ScanDock: View {
             } else {
                 Button(title, action: library.startScan)
                     .buttonStyle(InkButtonStyle())
+                    // The result of a scan shows for a moment. The button comes back with the table.
+                    .opacity(staged ? 0 : 1)
+                    .allowsHitTesting(!staged)
+                    .accessibilityHidden(staged)
             }
         }
         .onSpanChange { span = $0 }
@@ -337,63 +383,6 @@ private struct ResetScanButton: View {
             } message: {
                 Text("Photo Sorter forgets its results and your moves between piles. Ignored photos stay ignored.")
             }
-    }
-}
-
-private struct ScanProgress: View {
-    let done: Int
-    let skipped: Int
-    let total: Int
-    let rate: Double
-
-    private var processed: Int { done + skipped }
-    private var fraction: Double { total > 0 ? min(1, Double(processed) / Double(total)) : 0 }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if total > 0 {
-                GeometryReader { proxy in
-                    Rectangle()
-                        .fill(Color.primary)
-                        .frame(width: proxy.size.width * fraction)
-                        .animation(.linear(duration: 0.3), value: fraction)
-                }
-                .frame(height: 6)
-                .background(Color.sleeve)
-                .clipShape(.capsule)
-                .accessibilityElement()
-                .accessibilityLabel("Scan progress")
-                .accessibilityValue(Text(fraction, format: .percent.precision(.fractionLength(0))))
-                Text("Sorting \(processed.formatted()) of \(total.formatted())")
-                    .font(.headline)
-                    .monospacedDigit()
-                Text(pace)
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            } else {
-                HStack(spacing: 10) {
-                    ProgressView()
-                    Text("Getting ready…")
-                        .font(.headline)
-                }
-            }
-            Text("Keep Photo Sorter open. Progress is saved if you stop.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var pace: String {
-        guard rate > 0 else { return "Starting…" }
-        let seconds = Double(total - processed) / rate
-        let speed = "\(Int(rate.rounded())) photos a second"
-        guard seconds >= 60 else { return "\(speed), under a minute left" }
-        let units: Set<Duration.UnitsFormatStyle.Unit> = seconds >= 3600 ? [.hours, .minutes] : [.minutes]
-        let left = Duration.seconds(seconds).formatted(
-            .units(allowed: units, width: .abbreviated)
-        )
-        return "\(speed), about \(left) left"
     }
 }
 
@@ -496,7 +485,7 @@ private struct CircledPile: View {
 }
 
 /// A plain picture for the top print: sky, sun, two hills.
-private struct Landscape: View {
+struct Landscape: View {
     var body: some View {
         GeometryReader { proxy in
             let width = proxy.size.width

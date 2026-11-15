@@ -58,7 +58,12 @@ struct RootView: View {
         }
         .task { await library.checkModels() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { library.refreshAuthorization() }
+            if phase == .active {
+                library.refreshAuthorization()
+            } else {
+                // The app can be closed from here. A running scan saves what it has.
+                library.saveProgress()
+            }
         }
     }
 }

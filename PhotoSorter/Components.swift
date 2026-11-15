@@ -10,6 +10,13 @@ extension Category {
     static let uncertain: [Category] = [.saved]
     static let keep: [Category] = [.camera, .ignored]
 
+    /// Pencil color of the group that the category belongs to.
+    var mark: Color {
+        if Category.cleanup.contains(self) { return .chinaRed }
+        if Category.uncertain.contains(self) { return .waxYellow }
+        return .primary.opacity(0.28)
+    }
+
     /// Ignore is offered where a photo could still be cleaned up.
     var canIgnore: Bool { !Category.keep.contains(self) }
 
@@ -272,12 +279,16 @@ struct PencilMark: View {
     let seed: Int
     /// Share of the loop that is drawn, from 0 to 1.
     let drawn: Double
+    /// Share of the loop where the stroke starts. Zero for a loop that is drawn from its start.
+    var from = 0.0
+    /// Width of the pencil stroke.
+    var width: CGFloat = 5
 
     var body: some View {
-        let loop = PencilLoop(seed: seed).trim(from: 0, to: drawn)
+        let loop = PencilLoop(seed: seed).trim(from: from, to: drawn)
         ZStack {
-            loop.stroke(.black.opacity(0.3), style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
-            loop.stroke(Color.chinaRed, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+            loop.stroke(.black.opacity(0.3), style: StrokeStyle(lineWidth: width + 2, lineCap: .round, lineJoin: .round))
+            loop.stroke(Color.chinaRed, style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }

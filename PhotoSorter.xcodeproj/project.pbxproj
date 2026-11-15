@@ -14,6 +14,7 @@
 		6B6F88D6A27CE343EE7C3D72 /* CategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8013629A6099487A0E001C9E /* CategoryView.swift */; };
 		78566C9B6C3D1BC8C7D21E5E /* Classifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C09E2AB8F7898EFA40B46A6 /* Classifier.swift */; };
 		88EA46AB3DF76150A8277D52 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B7ED6BF5BA175317D92A7775 /* AppIcon.icon */; };
+		A21F847CFBE9538C236EDE3F /* ScanStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F07B8884D039DACDAED885 /* ScanStage.swift */; };
 		A4007D0543237063842BD029 /* labels_siglip.json in Resources */ = {isa = PBXBuildFile; fileRef = DBFE851F6DE92EFB3475D61D /* labels_siglip.json */; };
 		AA2AB625BB6EB9E089684FD4 /* siglip2_b16_image.mlmodelc in Resources */ = {isa = PBXBuildFile; fileRef = 8E7EBD47D8E106341E8043A5 /* siglip2_b16_image.mlmodelc */; };
 		BB514D55FC4190E6A628DF98 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8C944C976B10EAD6BDB44D /* HomeView.swift */; };
@@ -43,6 +44,7 @@
 		BF9E7A10B88891D4615A314E /* labels_pe.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels_pe.json; sourceTree = "<group>"; };
 		CDFBE2A3FF97600642E99116 /* PhotoSorter.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PhotoSorter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBFE851F6DE92EFB3475D61D /* labels_siglip.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = labels_siglip.json; sourceTree = "<group>"; };
+		F0F07B8884D039DACDAED885 /* ScanStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanStage.swift; sourceTree = "<group>"; };
 		FD4CFF0345450AFB94E41C3A /* SwipeSelect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeSelect.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -79,6 +81,7 @@
 				1072FE4D16913C1E5EC29E2B /* Library.swift */,
 				0D26DE282791208DF1FCB3E9 /* PhotoSorterApp.swift */,
 				86C03493720D88195CFF6D38 /* PhotoViewer.swift */,
+				F0F07B8884D039DACDAED885 /* ScanStage.swift */,
 				FD4CFF0345450AFB94E41C3A /* SwipeSelect.swift */,
 				6FC0F1E4D8135401BF9B47C0 /* Theme.swift */,
 				F887B9F1B0CC35861F6B25E2 /* Resources */,
@@ -179,6 +182,7 @@
 				BC7614A7AD3B1A085799B29F /* Library.swift in Sources */,
 				57176EC0CD687336762F7134 /* PhotoSorterApp.swift in Sources */,
 				D20AD686E5F345ECE0293A2B /* PhotoViewer.swift in Sources */,
+				A21F847CFBE9538C236EDE3F /* ScanStage.swift in Sources */,
 				FB464DCE6ED6005D22E874DB /* SwipeSelect.swift in Sources */,
 				C128D38FC9B094DBE0247498 /* Theme.swift in Sources */,
 			);

@@ -16,26 +16,36 @@ private final class ScanResults: @unchecked Sendable {
     private var classified: [(String, Item)] = []
     private var processed = 0
     private var total = 0
+    private var last: SortedPhoto?
 
     /// Adds the result for one photo. Nil when the photo was skipped.
-    func add(_ item: Item?, for id: String) {
+    func add(_ item: Item?, for asset: PHAsset) {
         lock.lock()
         defer { lock.unlock() }
-        if let item { classified.append((id, item)) }
+        if let item {
+            classified.append((asset.localIdentifier, item))
+            last = SortedPhoto(asset: asset, category: item.category)
+        }
         processed += 1
         total += 1
     }
 
-    /// Hands over the results since the last call, the number of photos that they come from, and
-    /// the number of photos since the start of the scan.
-    func take() -> (classified: [(String, Item)], processed: Int, total: Int) {
+    /// Hands over the results since the last call, the number of photos that they come from, the
+    /// number of photos since the start of the scan, and the photo that was sorted last.
+    func take() -> (classified: [(String, Item)], processed: Int, total: Int, last: SortedPhoto?) {
         lock.lock()
         defer { lock.unlock() }
-        let taken = (classified, processed, total)
+        let taken = (classified, processed, total, last)
         classified = []
         processed = 0
         return taken
     }
+}
+
+/// A photo that a scan put on a pile.
+struct SortedPhoto {
+    let asset: PHAsset
+    let category: Category
 }
 
 @MainActor
@@ -48,6 +58,12 @@ final class Library {
     private(set) var total = 0
     private(set) var skipped = 0
     private(set) var rate = 0.0
+    /// Number of photos that the scan sorted since it started.
+    private(set) var scanned = 0
+    /// True when the last scan ran to its end. False when it was stopped or failed.
+    private(set) var finished = false
+    /// The photo that the scan sorted last. No view observes it: it changes many times per second.
+    @ObservationIgnored private(set) var lastSorted: SortedPhoto?
     /// Error text, shown as an alert.
     var message: String?
     /// Confirmation of the last edit, shown as a short-lived banner.
@@ -57,6 +73,8 @@ final class Library {
     @ObservationIgnored private var task: Task<Void, Never>?
     /// Number of photos that a scan sorted since the results were saved.
     @ObservationIgnored private var unsaved = 0
+    /// Time when a scan saved its results last.
+    @ObservationIgnored private var saved = Date()
     @ObservationIgnored private var toastCount = 0
     /// The photos as they were before the last edit. Empty when the edit cannot be undone.
     @ObservationIgnored private var beforeEdit: [String: Item] = [:]
@@ -64,8 +82,9 @@ final class Library {
     @ObservationIgnored private var undoAction: (() -> Void)?
 
     private static let storeURL = URL.applicationSupportDirectory.appending(path: "items-v2.json")
-    /// Number of photos after which a scan saves its results.
-    private static let saveStep = 1200
+    private static let saveQueue = DispatchQueue(label: "me.egigoka.photosorter.save", qos: .userInitiated)
+    /// Seconds after which a running scan saves its results again.
+    private static let saveInterval = 5.0
     /// Key of the user default that holds the signature of the models that made the results.
     private static let modelsKey = "models"
 
@@ -143,12 +162,18 @@ final class Library {
     func startScan() {
         guard !scanning, hasAccess else { return }
         scanning = true
+        saved = Date()
+        finished = false
         skipped = 0
         rate = 0
+        scanned = 0
+        lastSorted = nil
         UIApplication.shared.isIdleTimerDisabled = true
         let known = Set(items.keys)
 
         task = Task.detached(priority: .userInitiated) { [weak self] in
+            // True when the scan sorted every photo that it had to sort.
+            var completed = false
             do {
                 let classifiers = try Classifier.loadAll()
                 let all = PHAsset.fetchAssets(with: .image, options: nil)
@@ -178,7 +203,7 @@ final class Library {
                     let batch = Array(pending[index..<min(index + batchSize, pending.count)])
                     DispatchQueue.concurrentPerform(iterations: batch.count) { i in
                         autoreleasepool {
-                            results.add(Analyzer.analyze(batch[i], classifiers: classifiers), for: batch[i].localIdentifier)
+                            results.add(Analyzer.analyze(batch[i], classifiers: classifiers), for: batch[i])
                         }
                     }
                     index += batch.count
@@ -186,10 +211,11 @@ final class Library {
                 }
                 reporter.cancel()
                 await self?.take(results, started: started)
+                completed = !Task.isCancelled
             } catch {
                 await self?.report("Scan failed: \(error.localizedDescription)")
             }
-            await self?.finish()
+            await self?.finish(completed: completed)
         }
     }
 
@@ -250,15 +276,26 @@ final class Library {
             counts[item.category, default: 0] += 1
         }
         done += new.classified.count
+        scanned += new.classified.count
+        lastSorted = new.last
         skipped += new.processed - new.classified.count
         rate = Double(new.total) / max(Date().timeIntervalSince(started), 0.001)
         unsaved += new.processed
-        guard unsaved >= Self.saveStep else { return }
-        unsaved = 0
-        persist()
+        // The scan saves as it goes. A crash loses the last seconds only.
+        if Date().timeIntervalSince(saved) >= Self.saveInterval { saveProgress(inBackground: true) }
     }
 
-    private func finish() {
+    /// Saves the results that a running scan made since it saved last. The app calls this when it
+    /// leaves the screen: iOS can end an app in the background without a warning.
+    func saveProgress(inBackground: Bool = false) {
+        guard unsaved > 0 else { return }
+        unsaved = 0
+        saved = Date()
+        persist(inBackground: inBackground)
+    }
+
+    private func finish(completed: Bool) {
+        finished = completed
         scanning = false
         task = nil
         unsaved = 0
@@ -413,12 +450,28 @@ final class Library {
         counts = fresh
     }
 
-    private func persist() {
-        do {
-            try FileManager.default.createDirectory(at: .applicationSupportDirectory, withIntermediateDirectories: true)
-            try JSONEncoder().encode(items).write(to: Self.storeURL, options: .atomic)
-        } catch {
-            message = "Could not save results: \(error.localizedDescription)"
+    /// Saves the results. All saves go through one queue, so an older save never replaces a newer one.
+    /// A running scan saves in the background: the save of a large library takes a part of a second,
+    /// and the screen must not stop for it.
+    private func persist(inBackground: Bool = false) {
+        let items = items
+        let url = Self.storeURL
+        let save: @Sendable () -> String? = {
+            do {
+                try FileManager.default.createDirectory(at: .applicationSupportDirectory, withIntermediateDirectories: true)
+                try JSONEncoder().encode(items).write(to: url, options: .atomic)
+                return nil
+            } catch {
+                return "Could not save results: \(error.localizedDescription)"
+            }
+        }
+        if inBackground {
+            Self.saveQueue.async { [weak self] in
+                guard let failure = save() else { return }
+                Task { @MainActor [weak self] in self?.message = failure }
+            }
+        } else if let failure = Self.saveQueue.sync(execute: save) {
+            message = failure
         }
     }
 }
