@@ -13,6 +13,7 @@
 		57176EC0CD687336762F7134 /* PhotoSorterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D26DE282791208DF1FCB3E9 /* PhotoSorterApp.swift */; };
 		6B6F88D6A27CE343EE7C3D72 /* CategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8013629A6099487A0E001C9E /* CategoryView.swift */; };
 		78566C9B6C3D1BC8C7D21E5E /* Classifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C09E2AB8F7898EFA40B46A6 /* Classifier.swift */; };
+		85FCDC94E6CE7373F23BA3A8 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 5BC36D2853BBFFD3DA99EC8F /* InfoPlist.xcstrings */; };
 		88EA46AB3DF76150A8277D52 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = B7ED6BF5BA175317D92A7775 /* AppIcon.icon */; };
 		A21F847CFBE9538C236EDE3F /* ScanStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F07B8884D039DACDAED885 /* ScanStage.swift */; };
 		A4007D0543237063842BD029 /* labels_siglip.json in Resources */ = {isa = PBXBuildFile; fileRef = DBFE851F6DE92EFB3475D61D /* labels_siglip.json */; };
@@ -22,6 +23,7 @@
 		C128D38FC9B094DBE0247498 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FC0F1E4D8135401BF9B47C0 /* Theme.swift */; };
 		D20AD686E5F345ECE0293A2B /* PhotoViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86C03493720D88195CFF6D38 /* PhotoViewer.swift */; };
 		EE61A19DAD10008E960D0723 /* pe_core_b16_image.mlmodelc in Resources */ = {isa = PBXBuildFile; fileRef = 3BB3F24939D663DCA9329374 /* pe_core_b16_image.mlmodelc */; };
+		F53B224F63B0DC36E3A4D4E3 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 570B2CC36E9464A2176B3D90 /* Localizable.xcstrings */; };
 		FB464DCE6ED6005D22E874DB /* SwipeSelect.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4CFF0345450AFB94E41C3A /* SwipeSelect.swift */; };
 		FED6607932B9B9FB003EA410 /* labels_pe.json in Resources */ = {isa = PBXBuildFile; fileRef = BF9E7A10B88891D4615A314E /* labels_pe.json */; };
 /* End PBXBuildFile section */
@@ -34,6 +36,8 @@
 		3933C0A07D1CD24C7D406D52 /* Adaptive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Adaptive.swift; sourceTree = "<group>"; };
 		3B05BABF4E1E617C3CEC4B82 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		3BB3F24939D663DCA9329374 /* pe_core_b16_image.mlmodelc */ = {isa = PBXFileReference; lastKnownFileType = folder; name = pe_core_b16_image.mlmodelc; path = Models/pe_core_b16_image.mlmodelc; sourceTree = SOURCE_ROOT; };
+		570B2CC36E9464A2176B3D90 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		5BC36D2853BBFFD3DA99EC8F /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		6A8C944C976B10EAD6BDB44D /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		6FC0F1E4D8135401BF9B47C0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8013629A6099487A0E001C9E /* CategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CategoryView.swift; sourceTree = "<group>"; };
@@ -78,7 +82,9 @@
 				3B05BABF4E1E617C3CEC4B82 /* Components.swift */,
 				6A8C944C976B10EAD6BDB44D /* HomeView.swift */,
 				88C06D94564F116BC3DE8663 /* Info.plist */,
+				5BC36D2853BBFFD3DA99EC8F /* InfoPlist.xcstrings */,
 				1072FE4D16913C1E5EC29E2B /* Library.swift */,
+				570B2CC36E9464A2176B3D90 /* Localizable.xcstrings */,
 				0D26DE282791208DF1FCB3E9 /* PhotoSorterApp.swift */,
 				86C03493720D88195CFF6D38 /* PhotoViewer.swift */,
 				F0F07B8884D039DACDAED885 /* ScanStage.swift */,
@@ -140,6 +146,7 @@
 			knownRegions = (
 				Base,
 				en,
+				ru,
 			);
 			mainGroup = B04D19A9F0A1D3ED318C44A8;
 			minimizedProjectReferenceProxies = 1;
@@ -160,6 +167,8 @@
 			files = (
 				88EA46AB3DF76150A8277D52 /* AppIcon.icon in Resources */,
 				4208F28E20B9C5651290C5BF /* Assets.xcassets in Resources */,
+				85FCDC94E6CE7373F23BA3A8 /* InfoPlist.xcstrings in Resources */,
+				F53B224F63B0DC36E3A4D4E3 /* Localizable.xcstrings in Resources */,
 				FED6607932B9B9FB003EA410 /* labels_pe.json in Resources */,
 				A4007D0543237063842BD029 /* labels_siglip.json in Resources */,
 				EE61A19DAD10008E960D0723 /* pe_core_b16_image.mlmodelc in Resources */,

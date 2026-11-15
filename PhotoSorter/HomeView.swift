@@ -152,7 +152,7 @@ private struct Summary: View {
                 ])
             }
             if library.skipped > 0 {
-                Text("\(library.skipped.formatted()) skipped because they are not downloaded from iCloud. Scan again to retry.")
+                Text("\(library.skipped) skipped because they are not downloaded from iCloud. Scan again to retry.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -161,12 +161,8 @@ private struct Summary: View {
     }
 
     private var statement: String {
-        let total = library.sorted.formatted()
-        switch cleanup {
-        case 0: return library.sorted == 1 ? "The 1 sorted photo looks real." : "All \(total) sorted photos look real."
-        case 1: return "1 of \(total) photos is not a real photo."
-        default: return "\(cleanup.formatted()) of \(total) photos are not real photos."
-        }
+        guard cleanup > 0 else { return String(localized: "All \(library.sorted) sorted photos look real.") }
+        return String(localized: "\(cleanup) of \(library.sorted) photos are not real photos.")
     }
 }
 
@@ -211,18 +207,18 @@ struct PileGroup: Identifiable {
 
     static let all = [
         PileGroup(
-            title: "Clean up",
+            title: String(localized: "Clean up"),
             mark: .chinaRed,
-            note: "The model saw no real photo in these. Look through a pile before you delete it.",
+            note: String(localized: "The model saw no real photo in these. Look through a pile before you delete it."),
             categories: Category.cleanup
         ),
         PileGroup(
-            title: "Check first",
+            title: String(localized: "Check first"),
             mark: .waxYellow,
-            note: "The model saw a photograph, but it carries no camera data. Some may be your own.",
+            note: String(localized: "The model saw a photograph, but it carries no camera data. Some may be your own."),
             categories: Category.uncertain
         ),
-        PileGroup(title: "Keep", mark: .primary.opacity(0.28), note: nil, categories: Category.keep),
+        PileGroup(title: String(localized: "Keep"), mark: .primary.opacity(0.28), note: nil, categories: Category.keep),
     ]
 }
 
@@ -364,9 +360,9 @@ private struct ScanDock: View {
     }
 
     private var title: String {
-        if library.sorted == 0 { return "Scan library" }
+        if library.sorted == 0 { return String(localized: "Scan library") }
         let remaining = library.total - library.done - library.skipped
-        return remaining > 0 ? "Resume scan" : "Scan new photos"
+        return remaining > 0 ? String(localized: "Resume scan") : String(localized: "Scan new photos")
     }
 }
 

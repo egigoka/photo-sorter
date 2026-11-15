@@ -214,30 +214,26 @@ private struct ScanReadout: View {
 
     private var headline: String {
         if library.finished {
-            switch library.scanned {
-            case 0: return "No new photos."
-            case 1: return "Sorted 1 photo."
-            default: return "Sorted \(library.scanned.formatted()) photos."
-            }
+            guard library.scanned > 0 else { return String(localized: "No new photos.") }
+            return String(localized: "Sorted \(library.scanned) photos.")
         }
-        guard library.total > 0 else { return "Getting ready…" }
-        return "Sorting \(processed.formatted()) of \(library.total.formatted())"
+        guard library.total > 0 else { return String(localized: "Getting ready…") }
+        return String(localized: "Sorting \(processed) of \(library.total)")
     }
 
     private var detail: String {
         if library.finished {
-            guard library.skipped > 0 else { return "Every photo is on a pile." }
-            return "\(library.skipped.formatted()) skipped because they are not downloaded from iCloud."
+            guard library.skipped > 0 else { return String(localized: "Every photo is on a pile.") }
+            return String(localized: "\(library.skipped) skipped because they are not downloaded from iCloud.")
         }
-        guard library.total > 0 else { return "Photo Sorter loads its models." }
-        guard library.rate > 0 else { return "Starting…" }
+        guard library.total > 0 else { return String(localized: "Photo Sorter loads its models.") }
+        guard library.rate > 0 else { return String(localized: "Starting…") }
         let seconds = Double(library.total - processed) / library.rate
         let pace = max(1, Int(library.rate.rounded()))
-        let speed = pace == 1 ? "1 photo a second" : "\(pace.formatted()) photos a second"
-        guard seconds >= 60 else { return "\(speed), under a minute left" }
+        guard seconds >= 60 else { return String(localized: "\(pace) photos a second, under a minute left") }
         let units: Set<Duration.UnitsFormatStyle.Unit> = seconds >= 3600 ? [.hours, .minutes] : [.minutes]
         let left = Duration.seconds(seconds).formatted(.units(allowed: units, width: .abbreviated))
-        return "\(speed), about \(left) left"
+        return String(localized: "\(pace) photos a second, about \(left) left")
     }
 }
 

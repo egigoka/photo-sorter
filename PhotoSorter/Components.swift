@@ -25,9 +25,17 @@ extension Category {
 
     var caution: String? {
         switch self {
-        case .saved: "These look like photographs but carry no camera data. Some may be your own photos."
+        case .saved: String(localized: "These look like photographs but carry no camera data. Some may be your own photos.")
         default: nil
         }
+    }
+}
+
+extension PHAsset {
+    /// What VoiceOver says for the photo.
+    var spokenName: String {
+        guard let creationDate else { return String(localized: "Photo") }
+        return String(localized: "Photo, \(creationDate.formatted(date: .abbreviated, time: .shortened))")
     }
 }
 

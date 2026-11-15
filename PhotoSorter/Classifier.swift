@@ -15,27 +15,27 @@ enum Category: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .screenshot: "Screenshots"
-        case .meme: "Memes"
-        case .saved: "Saved photos"
-        case .graphic: "Art & graphics"
-        case .document: "Documents"
-        case .misc: "Misc non-photos"
-        case .camera: "Camera photos"
-        case .ignored: "Ignored"
+        case .screenshot: String(localized: "Screenshots")
+        case .meme: String(localized: "Memes")
+        case .saved: String(localized: "Saved photos")
+        case .graphic: String(localized: "Art & graphics")
+        case .document: String(localized: "Documents")
+        case .misc: String(localized: "Misc non-photos")
+        case .camera: String(localized: "Camera photos")
+        case .ignored: String(localized: "Ignored")
         }
     }
 
     var subtitle: String {
         switch self {
-        case .screenshot: "Flagged by iOS or by the model"
-        case .meme: "Captions, comics, reaction images"
-        case .saved: "Photographs with no camera data"
-        case .graphic: "Drawings, posters, logos, wallpapers"
-        case .document: "Receipts, pages, forms, tickets"
-        case .misc: "Not photos, kind unclear"
-        case .camera: "Camera data, or the model sees a photo"
-        case .ignored: "Kept out of cleanup by you"
+        case .screenshot: String(localized: "Flagged by iOS or by the model")
+        case .meme: String(localized: "Captions, comics, reaction images")
+        case .saved: String(localized: "Photographs with no camera data")
+        case .graphic: String(localized: "Drawings, posters, logos, wallpapers")
+        case .document: String(localized: "Receipts, pages, forms, tickets")
+        case .misc: String(localized: "Not photos, kind unclear")
+        case .camera: String(localized: "Camera data, or the model sees a photo")
+        case .ignored: String(localized: "Kept out of cleanup by you")
         }
     }
 

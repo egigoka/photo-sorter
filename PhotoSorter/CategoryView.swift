@@ -233,9 +233,9 @@ struct CategoryView: View {
                 }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(asset.creationDate.map { "Photo, \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "Photo")
+        .accessibilityLabel(asset.spokenName)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityHint(selecting ? "" : "Opens the photo")
+        .accessibilityHint(selecting ? Text(verbatim: "") : Text("Opens the photo"))
         .contextMenu {
             Button(selected ? "Deselect" : "Select", systemImage: selected ? "circle" : "checkmark.circle") {
                 selecting = true
@@ -296,7 +296,7 @@ struct CategoryView: View {
     private var countInTopBar: Bool { selecting && (widthClass == .regular || toolbarIsVertical) }
 
     private var countText: String {
-        selection.isEmpty ? "Tap or swipe to select" : "\(selection.count.formatted()) selected"
+        selection.isEmpty ? String(localized: "Tap or swipe to select") : String(localized: "\(selection.count) selected")
     }
 
     /// The system title of the bar. It shows only on a display that folds: elsewhere the bar has its own title.
@@ -361,8 +361,10 @@ struct CategoryView: View {
     }
 
     private var emptyText: String {
-        if category == .ignored { return "Ignore a photo to keep it out of the cleanup piles." }
-        return library.sorted == 0 ? "Scan your library to fill this category." : "No photos are in \(category.title)."
+        if category == .ignored { return String(localized: "Ignore a photo to keep it out of the cleanup piles.") }
+        return library.sorted == 0
+            ? String(localized: "Scan your library to fill this category.")
+            : String(localized: "No photos are in \(category.title).")
     }
 
     private func ignore(_ ids: [String]) {
@@ -446,7 +448,7 @@ private struct CategoryHeader: View {
                 Text(category.title)
                     .font(.display(42, relativeTo: .largeTitle))
                     .accessibilityAddTraits(.isHeader)
-                Text("\(count.formatted()) \(count == 1 ? "photo" : "photos")")
+                Text("\(count) photos")
                     .font(.subheadline.weight(.semibold))
                 // The caution says what the subtitle says, and more.
                 if category.caution == nil {

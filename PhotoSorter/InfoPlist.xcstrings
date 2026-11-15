@@ -1,0 +1,23 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSPhotoLibraryUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo Sorter classifies your photos on device to find screenshots, memes and saved images."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photo Sorter сортирует фото на устройстве, чтобы найти снимки экрана, мемы и сохранённые картинки."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

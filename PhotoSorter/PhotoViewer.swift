@@ -156,12 +156,12 @@ struct PhotoViewer: View {
             .padding(.vertical, 8)
             .background(Color.table)
         }
-        .navigationTitle(shownIndex.map { "\(($0 + 1).formatted()) of \(assets.count.formatted())" } ?? "")
+        .navigationTitle(shownIndex.map { String(localized: "\($0 + 1) of \(assets.count)") } ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if !marked.isEmpty {
-                    Button("\(marked.count.formatted()) marked") { reviewing = true }
+                    Button("\(marked.count) marked") { reviewing = true }
                         .fontWeight(.semibold)
                         .tint(.chinaRed)
                         .accessibilityHint("Shows the photos marked to delete")
@@ -252,7 +252,7 @@ struct PhotoViewer: View {
             do {
                 shared = try await PhotoFile.export(id)
             } catch {
-                library.message = "The photo could not be shared: \(error.localizedDescription)"
+                library.message = String(localized: "The photo could not be shared: \(error.localizedDescription)")
             }
         }
     }
@@ -262,7 +262,7 @@ struct PhotoViewer: View {
         guard let index = shownIndex else { return }
         let id = assets[index].localIdentifier
         marked.insert(id)
-        library.confirm("Marked 1 photo to delete") {
+        library.confirm(String(localized: "Marked 1 photo to delete")) {
             marked.remove(id)
             withAnimation(reduceMotion ? nil : .default) {
                 position.scrollTo(id: id, anchor: .leading)
@@ -324,7 +324,7 @@ private struct ZoomablePhoto: View {
                 if image == nil { ProgressView() }
             }
             .accessibilityElement()
-            .accessibilityLabel(asset.creationDate.map { "Photo, \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "Photo")
+            .accessibilityLabel(asset.spokenName)
             .accessibilityAddTraits(.isImage)
             .task(id: asset.localIdentifier) {
                 for await next in ViewerPictures.images(for: asset) { image = next }
@@ -358,7 +358,7 @@ private struct MarkedPhotos: View {
                             ThumbnailView(asset: asset, selected: false)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(asset.creationDate.map { "Photo, \($0.formatted(date: .abbreviated, time: .shortened))" } ?? "Photo")
+                        .accessibilityLabel(asset.spokenName)
                         .accessibilityHint("Shows the photo in the viewer")
                     }
                 }
@@ -367,7 +367,7 @@ private struct MarkedPhotos: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 // Red pencil, not ink: on the glass of a sheet the ink color turns pale.
                 Button(action: delete) {
-                    Text("Delete \(assets.count.formatted()) \(assets.count == 1 ? "photo" : "photos")")
+                    Text("Delete \(assets.count) photos")
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)

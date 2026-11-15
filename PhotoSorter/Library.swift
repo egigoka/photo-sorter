@@ -175,7 +175,6 @@ final class Library {
             // True when the scan sorted every photo that it had to sort.
             var completed = false
             do {
-                let classifiers = try Classifier.loadAll()
                 let all = PHAsset.fetchAssets(with: .image, options: nil)
                 var present = Set<String>()
                 var pending: [PHAsset] = []
@@ -183,6 +182,12 @@ final class Library {
                     present.insert(asset.localIdentifier)
                     if !known.contains(asset.localIdentifier) { pending.append(asset) }
                 }
+                guard !pending.isEmpty else {
+                    // No photo is new. The models take seconds to load, so they stay unloaded.
+                    await self?.finishEmpty(present: present)
+                    return
+                }
+                let classifiers = try Classifier.loadAll()
                 await self?.begin(present: present, pending: pending.count)
 
                 let started = Date()
@@ -213,7 +218,7 @@ final class Library {
                 await self?.take(results, started: started)
                 completed = !Task.isCancelled
             } catch {
-                await self?.report("Scan failed: \(error.localizedDescription)")
+                await self?.report(String(localized: "Scan failed: \(error.localizedDescription)"))
             }
             await self?.finish(completed: completed)
         }
@@ -221,6 +226,24 @@ final class Library {
 
     func stopScan() {
         task?.cancel()
+    }
+
+    /// Sorts the photos that came to the library since the last scan. Call once after launch.
+    /// When no photo is new, the scan does not start and the piles stay on the screen.
+    /// A library with no results waits for the scan button.
+    func scanNewPhotos() async {
+        guard hasAccess, !scanning, sorted > 0 else { return }
+        let known = Set(items.keys)
+        let found = await Task.detached(priority: .userInitiated) {
+            var found = false
+            PHAsset.fetchAssets(with: .image, options: nil).enumerateObjects { asset, _, stop in
+                guard !known.contains(asset.localIdentifier) else { return }
+                found = true
+                stop.pointee = true
+            }
+            return found
+        }.value
+        if found { startScan() }
     }
 
     /// True when a scan has results to forget.
@@ -247,7 +270,7 @@ final class Library {
         guard let before, before != signature, canResetScan else { return }
         forgetResults()
         startScan()
-        confirm("The models changed. Sorting every photo again.")
+        confirm(String(localized: "The models changed. Sorting every photo again."))
     }
 
     private func forgetResults() {
@@ -294,6 +317,12 @@ final class Library {
         persist(inBackground: inBackground)
     }
 
+    /// Ends a scan that found no new photo.
+    private func finishEmpty(present: Set<String>) {
+        begin(present: present, pending: 0)
+        finish(completed: true)
+    }
+
     private func finish(completed: Bool) {
         finished = completed
         scanning = false
@@ -317,7 +346,7 @@ final class Library {
         }
         recount()
         persist()
-        confirm("Moved \(Self.photos(ids.count)) to \(category.title)", before: before)
+        confirm(String(localized: "Moved \(ids.count) photos to \(category.title)"), before: before)
     }
 
     /// Keeps the photos out of every cleanup pile. A later scan does not sort them again.
@@ -333,7 +362,7 @@ final class Library {
         }
         recount()
         persist()
-        confirm("Ignored \(Self.photos(ids.count))", before: before)
+        confirm(String(localized: "Ignored \(ids.count) photos"), before: before)
     }
 
     /// Returns ignored photos to the category they had before.
@@ -352,7 +381,7 @@ final class Library {
         }
         recount()
         persist()
-        confirm("Unignored \(Self.photos(ids.count))", before: before)
+        confirm(String(localized: "Unignored \(ids.count) photos"), before: before)
         if unknown { startScan() }
     }
 
@@ -366,12 +395,12 @@ final class Library {
             for asset in assets { items[asset.localIdentifier] = nil }
             recount()
             persist()
-            confirm("Deleted \(Self.photos(assets.count))")
+            confirm(String(localized: "Deleted \(assets.count) photos"))
             return true
         } catch let error as PHPhotosError where error.code == .userCancelled {
             // User declined the system confirmation.
         } catch {
-            message = "Delete failed: \(error.localizedDescription)"
+            message = String(localized: "Delete failed: \(error.localizedDescription)")
         }
         return false
     }
@@ -391,9 +420,9 @@ final class Library {
                     ?? PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: name)
                 request.addAssets(assets as NSArray)
             }
-            confirm("Added \(Self.photos(assets.count)) to “\(name)”")
+            confirm(String(localized: "Added \(assets.count) photos to “\(name)”"))
         } catch {
-            message = "Album update failed: \(error.localizedDescription)"
+            message = String(localized: "Album update failed: \(error.localizedDescription)")
         }
     }
 
@@ -409,7 +438,7 @@ final class Library {
         for (id, item) in beforeEdit { items[id] = item }
         recount()
         persist()
-        confirm("Put back \(Self.photos(count))")
+        confirm(String(localized: "Put back \(count) photos"))
     }
 
     func dismissToast() {
@@ -438,10 +467,6 @@ final class Library {
         ids.reduce(into: [:]) { result, id in result[id] = items[id] }
     }
 
-    private static func photos(_ count: Int) -> String {
-        "\(count.formatted()) \(count == 1 ? "photo" : "photos")"
-    }
-
     // MARK: Storage
 
     private func recount() {
@@ -462,7 +487,7 @@ final class Library {
                 try JSONEncoder().encode(items).write(to: url, options: .atomic)
                 return nil
             } catch {
-                return "Could not save results: \(error.localizedDescription)"
+                return String(localized: "Could not save results: \(error.localizedDescription)")
             }
         }
         if inBackground {
