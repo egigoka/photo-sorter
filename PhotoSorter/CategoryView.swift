@@ -311,6 +311,10 @@ struct CategoryView: View {
             .font(.footnote)
             .monospacedDigit()
             .foregroundStyle(selection.isEmpty ? .secondary : .primary)
+            // The bottom bar leaves little room between its buttons. The text takes two lines there.
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .minimumScaleFactor(0.8)
     }
 
     private func moveButtons(_ ids: @escaping () -> [String]) -> some View {
