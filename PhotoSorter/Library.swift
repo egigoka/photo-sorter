@@ -10,6 +10,34 @@ struct Toast: Equatable {
     let canUndo: Bool
 }
 
+/// Results of a scan that the library did not take yet. The scan makes them on many threads.
+private final class ScanResults: @unchecked Sendable {
+    private let lock = NSLock()
+    private var classified: [(String, Item)] = []
+    private var processed = 0
+    private var total = 0
+
+    /// Adds the result for one photo. Nil when the photo was skipped.
+    func add(_ item: Item?, for id: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let item { classified.append((id, item)) }
+        processed += 1
+        total += 1
+    }
+
+    /// Hands over the results since the last call, the number of photos that they come from, and
+    /// the number of photos since the start of the scan.
+    func take() -> (classified: [(String, Item)], processed: Int, total: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        let taken = (classified, processed, total)
+        classified = []
+        processed = 0
+        return taken
+    }
+}
+
 @MainActor
 @Observable
 final class Library {
@@ -27,6 +55,8 @@ final class Library {
 
     @ObservationIgnored private(set) var items: [String: Item] = [:]
     @ObservationIgnored private var task: Task<Void, Never>?
+    /// Number of photos that a scan sorted since the results were saved.
+    @ObservationIgnored private var unsaved = 0
     @ObservationIgnored private var toastCount = 0
     /// The photos as they were before the last edit. Empty when the edit cannot be undone.
     @ObservationIgnored private var beforeEdit: [String: Item] = [:]
@@ -34,6 +64,10 @@ final class Library {
     @ObservationIgnored private var undoAction: (() -> Void)?
 
     private static let storeURL = URL.applicationSupportDirectory.appending(path: "items-v2.json")
+    /// Number of photos after which a scan saves its results.
+    private static let saveStep = 1200
+    /// Key of the user default that holds the signature of the models that made the results.
+    private static let modelsKey = "models"
 
     init() {
         // Results in a category that no longer exists are dropped, so the next scan sorts those photos again.
@@ -127,24 +161,31 @@ final class Library {
                 await self?.begin(present: present, pending: pending.count)
 
                 let started = Date()
+                let results = ScanResults()
+                // The library takes the results when a batch is done. A batch can take seconds:
+                // then the library also takes them each half second, so the progress keeps moving.
+                let reporter = Task.detached(priority: .userInitiated) { [weak self] in
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        await self?.take(results, started: started)
+                    }
+                }
+                defer { reporter.cancel() }
+
                 let batchSize = 24
                 var index = 0
-                var batches = 0
                 while index < pending.count, !Task.isCancelled {
                     let batch = Array(pending[index..<min(index + batchSize, pending.count)])
-                    var results = [Item?](repeating: nil, count: batch.count)
-                    results.withUnsafeMutableBufferPointer { buffer in
-                        let base = buffer.baseAddress!
-                        DispatchQueue.concurrentPerform(iterations: batch.count) { i in
-                            autoreleasepool { (base + i).pointee = Analyzer.analyze(batch[i], classifiers: classifiers) }
+                    DispatchQueue.concurrentPerform(iterations: batch.count) { i in
+                        autoreleasepool {
+                            results.add(Analyzer.analyze(batch[i], classifiers: classifiers), for: batch[i].localIdentifier)
                         }
                     }
                     index += batch.count
-                    batches += 1
-                    let classified = zip(batch, results).compactMap { asset, item in item.map { (asset.localIdentifier, $0) } }
-                    let speed = Double(index) / max(Date().timeIntervalSince(started), 0.001)
-                    await self?.merge(classified, processed: batch.count, rate: speed, save: batches % 50 == 0)
+                    await self?.take(results, started: started)
                 }
+                reporter.cancel()
+                await self?.take(results, started: started)
             } catch {
                 await self?.report("Scan failed: \(error.localizedDescription)")
             }
@@ -163,12 +204,32 @@ final class Library {
     /// Ignored photos stay ignored.
     func resetScan() {
         guard canResetScan else { return }
+        forgetResults()
+        startScan()
+    }
+
+    /// Sorts the library again when this version has other models than the version that made the
+    /// results. Ignored photos stay ignored. Call once after launch.
+    func checkModels() async {
+        let signature = await Task.detached(priority: .userInitiated) { Classifier.signature() }.value
+        // A scan that started in the meantime has the new models. The next launch checks again.
+        guard let signature, !scanning else { return }
+        let defaults = UserDefaults.standard
+        let before = defaults.string(forKey: Self.modelsKey)
+        defaults.set(signature, forKey: Self.modelsKey)
+        // A version that did not record its models leaves no value. Its results stay.
+        guard let before, before != signature, canResetScan else { return }
+        forgetResults()
+        startScan()
+        confirm("The models changed. Sorting every photo again.")
+    }
+
+    private func forgetResults() {
         // Undo must not bring back a forgotten result.
         dismissToast()
         items = items.filter { $0.value.category == .ignored }
         recount()
         persist()
-        startScan()
     }
 
     private func begin(present: Set<String>, pending: Int) {
@@ -179,20 +240,28 @@ final class Library {
         done = present.count - pending
     }
 
-    private func merge(_ classified: [(String, Item)], processed: Int, rate: Double, save: Bool) {
-        for (id, item) in classified {
+    /// Takes the results that the scan made since the last call.
+    private func take(_ results: ScanResults, started: Date) {
+        let new = results.take()
+        // No photo is done since the last call. The speed stays, so the time that is left does not jump.
+        guard new.processed > 0 else { return }
+        for (id, item) in new.classified {
             items[id] = item
             counts[item.category, default: 0] += 1
         }
-        done += classified.count
-        skipped += processed - classified.count
-        self.rate = rate
-        if save { persist() }
+        done += new.classified.count
+        skipped += new.processed - new.classified.count
+        rate = Double(new.total) / max(Date().timeIntervalSince(started), 0.001)
+        unsaved += new.processed
+        guard unsaved >= Self.saveStep else { return }
+        unsaved = 0
+        persist()
     }
 
     private func finish() {
         scanning = false
         task = nil
+        unsaved = 0
         UIApplication.shared.isIdleTimerDisabled = false
         persist()
     }

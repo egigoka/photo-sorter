@@ -1,4 +1,5 @@
 import CoreML
+import CryptoKit
 import ImageIO
 import OSLog
 import Photos
@@ -86,10 +87,45 @@ final class Classifier: @unchecked Sendable {
     /// training data and loss, so the cleanup piles are safer: a photo leaves the camera pile only
     /// when both agree.
     static func loadAll() throws -> [Classifier] {
-        [
-            try Classifier(model: "siglip2_b16_image", labels: "labels_siglip"),
-            try Classifier(model: "pe_core_b16_image", labels: "labels_pe"),
-        ]
+        try bundled.map { try Classifier(model: $0.model, labels: $0.labels) }
+    }
+
+    private static let bundled = [
+        (model: "siglip2_b16_image", labels: "labels_siglip"),
+        (model: "pe_core_b16_image", labels: "labels_pe"),
+    ]
+
+    /// A value that changes when a model or its labels change. Results from other models do not
+    /// fit the piles of these models. Nil when a file cannot be read.
+    static func signature() -> String? {
+        var hash = SHA256()
+        for (model, labels) in bundled {
+            guard let modelURL = Bundle.main.url(forResource: model, withExtension: "mlmodelc"),
+                  let labelsURL = Bundle.main.url(forResource: labels, withExtension: "json"),
+                  let labelData = try? Data(contentsOf: labelsURL),
+                  let paths = FileManager.default.subpaths(atPath: modelURL.path)
+            else { return nil }
+            hash.update(data: Data(model.utf8))
+            hash.update(data: labelData)
+            for path in paths.sorted() {
+                let url = modelURL.appending(path: path)
+                guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+                guard let file = try? FileHandle(forReadingFrom: url), let size = try? file.seekToEnd() else { return nil }
+                defer { try? file.close() }
+                hash.update(data: Data("\(path) \(size)".utf8))
+                // The weights are large. Their size and samples at regular steps tell one file from another.
+                let sample: UInt64 = 1 << 16
+                let steps: UInt64 = size > 16 * sample ? 16 : 1
+                for step in 0..<steps {
+                    try? file.seek(toOffset: size / steps * step)
+                    // An empty file gives no data.
+                    if let part = try? file.read(upToCount: Int(steps == 1 ? max(size, 1) : sample)) {
+                        hash.update(data: part)
+                    }
+                }
+            }
+        }
+        return hash.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     init(model modelName: String, labels labelsName: String) throws {

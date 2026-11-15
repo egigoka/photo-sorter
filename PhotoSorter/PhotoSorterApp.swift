@@ -56,6 +56,7 @@ struct RootView: View {
         } message: {
             Text(library.message ?? "")
         }
+        .task { await library.checkModels() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { library.refreshAuthorization() }
         }
