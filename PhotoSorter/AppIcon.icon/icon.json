@@ -1,0 +1,118 @@
+{
+  "fill-specializations": [
+    {
+      "value": {
+        "linear-gradient": [
+          "srgb:0.96863,0.97647,0.98039,1.00000",
+          "srgb:0.82745,0.86275,0.88235,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 1
+          }
+        }
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
+          "srgb:0.17255,0.20784,0.23137,1.00000",
+          "srgb:0.07059,0.09020,0.10196,1.00000"
+        ],
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
+          },
+          "stop": {
+            "x": 0.5,
+            "y": 1
+          }
+        }
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "Top print",
+      "layers": [
+        {
+          "image-name": "front-near-hill.svg",
+          "name": "front-near-hill"
+        },
+        {
+          "image-name": "front-far-hill.svg",
+          "name": "front-far-hill"
+        },
+        {
+          "image-name": "front-sun.svg",
+          "name": "front-sun",
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,0.78824,0.20000,1.00000"
+              }
+            }
+          ]
+        },
+        {
+          "image-name": "front-sky.svg",
+          "name": "front-sky"
+        },
+        {
+          "image-name": "front-paper.svg",
+          "name": "front-paper"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    },
+    {
+      "name": "Back prints",
+      "layers": [
+        {
+          "image-name": "back-right.svg",
+          "name": "back-right",
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,0.78824,0.20000,1.00000"
+              }
+            }
+          ]
+        },
+        {
+          "image-name": "back-left.svg",
+          "name": "back-left"
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.4
+      },
+      "specular": true,
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

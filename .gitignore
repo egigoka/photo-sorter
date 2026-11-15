@@ -1,0 +1,13 @@
+# Build output
+build/
+DerivedData/
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Sources of the first design, kept on disk only
+design-v1-backup/
