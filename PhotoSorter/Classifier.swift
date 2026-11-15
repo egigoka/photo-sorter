@@ -27,13 +27,13 @@ enum Category: String, Codable, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .screenshot: "Flagged by iOS or both models agree"
+        case .screenshot: "Flagged by iOS or by the model"
         case .meme: "Captions, comics, reaction images"
         case .saved: "Photographs with no camera data"
         case .graphic: "Drawings, posters, logos, wallpapers"
         case .document: "Receipts, pages, forms, tickets"
         case .misc: "Not photos, kind unclear"
-        case .camera: "Camera data, or a model sees a photo"
+        case .camera: "Camera data, or the model sees a photo"
         case .ignored: "Kept out of cleanup by you"
         }
     }
@@ -82,12 +82,10 @@ final class Classifier: @unchecked Sendable {
     private let labels: [Label]
     private let embeddings: [[Float]]
 
-    /// Two independent models: different architecture, training data and loss.
+    /// The models that vote on a photo. A second model with a different architecture, training data
+    /// and loss makes the cleanup piles safer: a photo then leaves the camera pile only when both agree.
     static func loadAll() throws -> [Classifier] {
-        [
-            try Classifier(model: "mobileclip_s2_image", labels: "labels_mobileclip"),
-            try Classifier(model: "siglip2_b16_image", labels: "labels_siglip"),
-        ]
+        [try Classifier(model: "siglip2_b16_image", labels: "labels_siglip")]
     }
 
     init(model modelName: String, labels labelsName: String) throws {

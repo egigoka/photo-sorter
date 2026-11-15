@@ -86,7 +86,7 @@ private struct Summary: View {
             if library.sorted == 0 {
                 Text("Nothing is sorted yet.")
                     .font(.display(40, relativeTo: .largeTitle))
-                Text("Photo Sorter looks at every photo on this iPhone and puts it on a pile. A photo goes to a cleanup pile only when two models both say it is not a real photo.")
+                Text("Photo Sorter looks at every photo on this iPhone and puts it on a pile. A photo goes to a cleanup pile only when the model sees no real photo in it.")
                     .foregroundStyle(.secondary)
             } else {
                 Text(statement)
@@ -161,13 +161,13 @@ private struct PileGroup: Identifiable {
         PileGroup(
             title: "Clean up",
             mark: .chinaRed,
-            note: "Neither model saw a real photo in these. Look through a pile before you delete it.",
+            note: "The model saw no real photo in these. Look through a pile before you delete it.",
             categories: Category.cleanup
         ),
         PileGroup(
             title: "Check first",
             mark: .waxYellow,
-            note: "Both models saw a photograph, but it carries no camera data. Some may be your own.",
+            note: "The model saw a photograph, but it carries no camera data. Some may be your own.",
             categories: Category.uncertain
         ),
         PileGroup(title: "Keep", mark: .primary.opacity(0.28), note: nil, categories: Category.keep),
@@ -372,7 +372,7 @@ struct WelcomeView: View {
                     .font(.display(46, relativeTo: .largeTitle))
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Photo Sorter puts your library on piles: screenshots, memes, documents, graphics and real photos.")
-                    Text("Two models look at each photo. If either one sees a real photograph, it stays with your camera photos.")
+                    Text("A model looks at each photo. If it sees a real photograph, the photo stays with your camera photos.")
                     Text("Everything runs on this iPhone. No photo leaves it.")
                 }
             }

@@ -9,9 +9,6 @@ targets:
     platform: iOS
     sources:
       - path: PhotoSorter
-      - path: Models/mobileclip_s2_image.mlmodelc
-        type: folder
-        buildPhase: resources
       - path: Models/siglip2_b16_image.mlmodelc
         type: folder
         buildPhase: resources
